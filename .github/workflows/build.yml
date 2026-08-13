@@ -10,10 +10,9 @@ jobs:
 
       - name: 生成所有源代码
         run: |
-          mkdir -p src/main/java/com/example/namedobsidian/mixin
+          mkdir -p src/main/java/com/example/namedobsidian
           mkdir -p src/main/resources/assets/minecraft/models/block
           mkdir -p src/main/resources/assets/minecraft/models/item
-          mkdir -p gradle/wrapper
 
           cat > build.gradle <<'EOF'
           plugins {
@@ -64,7 +63,7 @@ jobs:
             "id": "sbx_frag_7",
             "version": "1.0.0",
             "name": "<SBX://PROJ.FRAG-7/ACCESS:Ω>",
-            "description": "铁砧命名改变黑曜石/哭泣黑曜石纹理（含地面）",
+            "description": "铁砧命名改变黑曜石/哭泣黑曜石纹理（物品栏）",
             "authors": ["You"],
             "license": "MIT",
             "environment": "client",
@@ -72,22 +71,10 @@ jobs:
               "main": ["com.example.namedobsidian.NamedObsidianMod"],
               "client": ["com.example.namedobsidian.NamedObsidianClient"]
             },
-            "mixins": ["namedobsidian.mixins.json"],
             "depends": {
               "fabricloader": ">=0.15.0",
               "minecraft": "~1.21.1"
             }
-          }
-          EOF
-
-          cat > src/main/resources/namedobsidian.mixins.json <<'EOF'
-          {
-            "required": true,
-            "minVersion": "0.8",
-            "package": "com.example.namedobsidian.mixin",
-            "compatibilityLevel": "JAVA_21",
-            "client": ["PlaceMixin", "BlockRenderDispatcherMixin"],
-            "injectors": { "defaultRequire": 1 }
           }
           EOF
 
@@ -103,137 +90,65 @@ jobs:
           package com.example.namedobsidian;
           import net.fabricmc.api.ClientModInitializer;
           import net.minecraft.client.renderer.item.ItemProperties;
-          import net.minecraft.client.renderer.item.ClampedItemPropertyFunction;
           import net.minecraft.resources.ResourceLocation;
-          import net.minecraft.world.item.Item;
           import net.minecraft.world.item.Items;
-          import java.lang.reflect.Method;
           public class NamedObsidianClient implements ClientModInitializer {
               @Override
               public void onInitializeClient() {
-                  try {
-                      Method registerMethod = ItemProperties.class.getDeclaredMethod(
-                          "register",
-                          Item.class,
-                          ResourceLocation.class,
-                          ClampedItemPropertyFunction.class
-                      );
-                      registerMethod.setAccessible(true);
-
-                      registerMethod.invoke(null, new Object[]{
-                          Items.OBSIDIAN,
-                          ResourceLocation.withDefaultNamespace("void"),
-                          (ClampedItemPropertyFunction) (stack, world, entity, seed) -> {
-                              if ("Void.exp".equals(stack.getDisplayName().getString())) {
-                                  return 1.0f;
-                              }
-                              return 0.0f;
+                  // 使用原版 API 注册物品属性
+                  ItemProperties.register(Items.OBSIDIAN,
+                      ResourceLocation.withDefaultNamespace("void"),
+                      (stack, world, entity, seed) -> {
+                          if (stack.hasCustomName() && "Void.exp".equals(stack.getCustomName().getString())) {
+                              return 1.0f;
                           }
-                      });
-                      registerMethod.invoke(null, new Object[]{
-                          Items.CRYING_OBSIDIAN,
-                          ResourceLocation.withDefaultNamespace("sky"),
-                          (ClampedItemPropertyFunction) (stack, world, entity, seed) -> {
-                              if ("<SKY.GEM>".equals(stack.getDisplayName().getString())) {
-                                  return 1.0f;
-                              }
-                              return 0.0f;
+                          return 0.0f;
+                      }
+                  );
+                  ItemProperties.register(Items.CRYING_OBSIDIAN,
+                      ResourceLocation.withDefaultNamespace("sky"),
+                      (stack, world, entity, seed) -> {
+                          if (stack.hasCustomName() && "<SKY.GEM>".equals(stack.getCustomName().getString())) {
+                              return 1.0f;
                           }
-                      });
-                  } catch (Exception e) {
-                      e.printStackTrace();
-                  }
+                          return 0.0f;
+                      }
+                  );
               }
           }
           EOF
 
-          cat > src/main/java/com/example/namedobsidian/ObsidianData.java <<'EOF'
-          package com.example.namedobsidian;
-          import net.minecraft.core.BlockPos;
-          import net.minecraft.world.level.Level;
-          import java.util.concurrent.ConcurrentHashMap;
-          public class ObsidianData {
-              private static final ConcurrentHashMap<BlockPos, String> MAP = new ConcurrentHashMap<>();
-              public static void putName(BlockPos pos, String name) { MAP.put(pos, name); }
-              public static String getClientName(Level world, BlockPos pos) { return MAP.get(pos); }
-              public static void remove(BlockPos pos) { MAP.remove(pos); }
+          cat > src/main/resources/assets/minecraft/models/item/obsidian.json <<'EOF'
+          {
+            "parent": "minecraft:item/generated",
+            "textures": { "layer0": "minecraft:item/obsidian" },
+            "overrides": [
+              { "predicate": { "minecraft:void": 1 }, "model": "minecraft:item/obsidian_void" }
+            ]
           }
           EOF
 
-          cat > src/main/java/com/example/namedobsidian/mixin/PlaceMixin.java <<'EOF'
-          package com.example.namedobsidian.mixin;
-          import com.example.namedobsidian.ObsidianData;
-          import net.minecraft.core.BlockPos;
-          import net.minecraft.world.InteractionResult;
-          import net.minecraft.world.item.BlockItem;
-          import net.minecraft.world.item.context.BlockPlaceContext;
-          import net.minecraft.world.level.Level;
-          import org.spongepowered.asm.mixin.Mixin;
-          import org.spongepowered.asm.mixin.injection.At;
-          import org.spongepowered.asm.mixin.injection.Inject;
-          import org.spongepowered.asm.mixin.injection.callback.CallbackInfoReturnable;
-          @Mixin(BlockItem.class)
-          public class PlaceMixin {
-              @Inject(method = "place", at = @At("RETURN"))
-              private void onPlace(BlockPlaceContext context, CallbackInfoReturnable<InteractionResult> cir) {
-                  if (cir.getReturnValue().consumesAction()) {
-                      Level world = context.getLevel();
-                      if (world.isClientSide()) {
-                          BlockPos pos = context.getClickedPos();
-                          String name = context.getItemInHand().getDisplayName().getString();
-                          if ("Void.exp".equals(name) || "<SKY.GEM>".equals(name)) {
-                              ObsidianData.putName(pos, name);
-                          }
-                      }
-                  }
-              }
+          cat > src/main/resources/assets/minecraft/models/item/obsidian_void.json <<'EOF'
+          {
+            "parent": "minecraft:block/cube_all",
+            "textures": { "all": "minecraft:block/obsidian_void" }
           }
           EOF
 
-          cat > src/main/java/com/example/namedobsidian/mixin/BlockRenderDispatcherMixin.java <<'EOF'
-          package com.example.namedobsidian.mixin;
-          import com.example.namedobsidian.ObsidianData;
-          import net.minecraft.client.Minecraft;
-          import net.minecraft.client.renderer.block.BlockRenderDispatcher;
-          import net.minecraft.client.resources.model.BakedModel;
-          import net.minecraft.client.resources.model.ModelResourceLocation;
-          import net.minecraft.core.BlockPos;
-          import net.minecraft.resources.ResourceLocation;
-          import net.minecraft.world.level.BlockAndTintGetter;
-          import net.minecraft.world.level.Level;
-          import net.minecraft.world.level.block.Blocks;
-          import net.minecraft.world.level.block.state.BlockState;
-          import org.spongepowered.asm.mixin.Mixin;
-          import org.spongepowered.asm.mixin.injection.At;
-          import org.spongepowered.asm.mixin.injection.ModifyVariable;
+          cat > src/main/resources/assets/minecraft/models/item/crying_obsidian.json <<'EOF'
+          {
+            "parent": "minecraft:item/generated",
+            "textures": { "layer0": "minecraft:item/crying_obsidian" },
+            "overrides": [
+              { "predicate": { "minecraft:sky": 1 }, "model": "minecraft:item/crying_obsidian_sky" }
+            ]
+          }
+          EOF
 
-          @Mixin(BlockRenderDispatcher.class)
-          public class BlockRenderDispatcherMixin {
-              @ModifyVariable(method = "renderBlock", at = @At("HEAD"), argsOnly = true, index = 3)
-              private BakedModel replaceModel(BakedModel original, BlockState state, BlockPos pos, BlockAndTintGetter world) {
-                  if (world instanceof Level) {
-                      Level level = (Level) world;
-                      if (!level.isClientSide() || level.getBlockState(pos).isAir()) {
-                          return original;
-                      }
-                      String name = ObsidianData.getClientName(level, pos);
-                      if (name != null) {
-                          Minecraft client = Minecraft.getInstance();
-                          if (state.getBlock() == Blocks.OBSIDIAN && "Void.exp".equals(name)) {
-                              ModelResourceLocation modelLoc = new ModelResourceLocation(
-                                  ResourceLocation.withDefaultNamespace("block/obsidian_void"), "");
-                              BakedModel custom = client.getModelManager().getModel(modelLoc);
-                              if (custom != null) return custom;
-                          } else if (state.getBlock() == Blocks.CRYING_OBSIDIAN && "<SKY.GEM>".equals(name)) {
-                              ModelResourceLocation modelLoc = new ModelResourceLocation(
-                                  ResourceLocation.withDefaultNamespace("block/crying_obsidian_sky"), "");
-                              BakedModel custom = client.getModelManager().getModel(modelLoc);
-                              if (custom != null) return custom;
-                          }
-                      }
-                  }
-                  return original;
-              }
+          cat > src/main/resources/assets/minecraft/models/item/crying_obsidian_sky.json <<'EOF'
+          {
+            "parent": "minecraft:block/cube_all",
+            "textures": { "all": "minecraft:block/crying_obsidian_sky" }
           }
           EOF
 
@@ -242,18 +157,6 @@ jobs:
           EOF
           cat > src/main/resources/assets/minecraft/models/block/crying_obsidian_sky.json <<'EOF'
           {"parent":"minecraft:block/cube_all","textures":{"all":"minecraft:block/crying_obsidian_sky"}}
-          EOF
-          cat > src/main/resources/assets/minecraft/models/item/obsidian.json <<'EOF'
-          {"parent":"minecraft:item/generated","textures":{"layer0":"minecraft:item/obsidian"},"overrides":[{"predicate":{"minecraft:void":1},"model":"minecraft:item/obsidian_void"}]}
-          EOF
-          cat > src/main/resources/assets/minecraft/models/item/obsidian_void.json <<'EOF'
-          {"parent":"minecraft:block/obsidian_void"}
-          EOF
-          cat > src/main/resources/assets/minecraft/models/item/crying_obsidian.json <<'EOF'
-          {"parent":"minecraft:item/generated","textures":{"layer0":"minecraft:item/crying_obsidian"},"overrides":[{"predicate":{"minecraft:sky":1},"model":"minecraft:item/crying_obsidian_sky"}]}
-          EOF
-          cat > src/main/resources/assets/minecraft/models/item/crying_obsidian_sky.json <<'EOF'
-          {"parent":"minecraft:block/crying_obsidian_sky"}
           EOF
 
           echo "✅ 所有源码生成完毕！"
