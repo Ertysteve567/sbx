@@ -13,6 +13,7 @@ jobs:
           mkdir -p src/main/java/com/example/namedobsidian
           mkdir -p src/main/resources/assets/minecraft/models/block
           mkdir -p src/main/resources/assets/minecraft/models/item
+          mkdir -p gradle/wrapper   # ✅ 创建 gradle/wrapper 目录
 
           cat > build.gradle <<'EOF'
           plugins {
@@ -95,7 +96,6 @@ jobs:
           public class NamedObsidianClient implements ClientModInitializer {
               @Override
               public void onInitializeClient() {
-                  // 使用原版 API 注册物品属性
                   ItemProperties.register(Items.OBSIDIAN,
                       ResourceLocation.withDefaultNamespace("void"),
                       (stack, world, entity, seed) -> {
