@@ -10,25 +10,30 @@ jobs:
 
       - name: 生成所有源代码
         run: |
-          mkdir -p src/main/java/com/example/groundtexture/mixin
+          mkdir -p src/main/java/com/example/namedobsidian/mixin
           mkdir -p src/main/resources/assets/minecraft/models/block
+          mkdir -p src/main/resources/assets/minecraft/models/item
           mkdir -p gradle/wrapper
 
           cat > build.gradle <<'EOF'
           plugins {
-              id 'fabric-loom' version '1.8.13'
-              id 'maven-publish'
+              id 'fabric-loom' version '1.7.4'
+              id 'java'
           }
           version = "1.0.0"
           group = "com.example"
-          archivesBaseName = "ground_texture"
-          repositories { 
+          repositories {
               mavenCentral()
-              maven { url 'https://maven.fabricmc.net/' }
+              maven {
+                  name = "Fabric"
+                  url = "https://maven.fabricmc.net/"
+              }
           }
           dependencies {
               minecraft "com.mojang:minecraft:1.21.1"
-              mappings loom.officialMojangMappings()
+              mappings loom.layered {
+                  officialMojangMappings()
+              }
               modImplementation "net.fabricmc:fabric-loader:0.15.11"
           }
           EOF
@@ -41,7 +46,7 @@ jobs:
                   gradlePluginPortal()
               }
           }
-          rootProject.name = "ground_texture"
+          rootProject.name = "sbx_frag_7"
           EOF
 
           cat > gradle.properties <<'EOF'
@@ -60,18 +65,18 @@ jobs:
           cat > src/main/resources/fabric.mod.json <<'EOF'
           {
             "schemaVersion": 1,
-            "id": "ground_texture",
+            "id": "sbx_frag_7",
             "version": "1.0.0",
-            "name": "Ground Texture Changer",
-            "description": "Changes block texture based on item name when placed",
+            "name": "<SBX://PROJ.FRAG-7/ACCESS:Ω>",
+            "description": "铁砧命名改变黑曜石纹理（物品栏 + 地面）",
             "authors": ["You"],
             "license": "MIT",
             "environment": "client",
             "entrypoints": {
-              "main": ["com.example.groundtexture.GroundTextureMod"],
-              "client": ["com.example.groundtexture.GroundTextureClient"]
+              "main": ["com.example.namedobsidian.NamedObsidianMod"],
+              "client": ["com.example.namedobsidian.NamedObsidianClient"]
             },
-            "mixins": ["ground_texture.mixins.json"],
+            "mixins": ["namedobsidian.mixins.json"],
             "depends": {
               "fabricloader": ">=0.15.0",
               "minecraft": "~1.21.1"
@@ -79,49 +84,59 @@ jobs:
           }
           EOF
 
-          cat > src/main/resources/ground_texture.mixins.json <<'EOF'
+          cat > src/main/resources/namedobsidian.mixins.json <<'EOF'
           {
             "required": true,
             "minVersion": "0.8",
-            "package": "com.example.groundtexture.mixin",
+            "package": "com.example.namedobsidian.mixin",
             "compatibilityLevel": "JAVA_21",
-            "client": ["BlockRenderDispatcherMixin", "PlaceMixin"],
-            "injectors": { "defaultRequire": 1 }
+            "client": [
+              "PlaceMixin",
+              "BlockRemoveMixin"
+            ],
+            "injectors": {
+              "defaultRequire": 1
+            }
           }
           EOF
 
-          cat > src/main/java/com/example/groundtexture/GroundTextureMod.java <<'EOF'
-          package com.example.groundtexture;
+          cat > src/main/java/com/example/namedobsidian/NamedObsidianMod.java <<'EOF'
+          package com.example.namedobsidian;
           import net.fabricmc.api.ModInitializer;
-          public class GroundTextureMod implements ModInitializer {
-              @Override public void onInitialize() {}
+          public class NamedObsidianMod implements ModInitializer {
+              @Override public void onInitialize() {
+                  System.out.println("[sbx_frag_7] 模组已加载");
+              }
           }
           EOF
 
-          cat > src/main/java/com/example/groundtexture/GroundTextureClient.java <<'EOF'
-          package com.example.groundtexture;
+          cat > src/main/java/com/example/namedobsidian/NamedObsidianClient.java <<'EOF'
+          package com.example.namedobsidian;
           import net.fabricmc.api.ClientModInitializer;
-          public class GroundTextureClient implements ClientModInitializer {
-              @Override public void onInitializeClient() {}
+          public class NamedObsidianClient implements ClientModInitializer {
+              @Override
+              public void onInitializeClient() {
+                  System.out.println("[sbx_frag_7] 客户端已加载");
+              }
           }
           EOF
 
-          cat > src/main/java/com/example/groundtexture/TextureData.java <<'EOF'
-          package com.example.groundtexture;
+          cat > src/main/java/com/example/namedobsidian/ObsidianData.java <<'EOF'
+          package com.example.namedobsidian;
           import net.minecraft.core.BlockPos;
           import net.minecraft.world.level.Level;
           import java.util.concurrent.ConcurrentHashMap;
-          public class TextureData {
+          public class ObsidianData {
               private static final ConcurrentHashMap<BlockPos, String> MAP = new ConcurrentHashMap<>();
-              public static void put(BlockPos pos, String name) { MAP.put(pos, name); }
-              public static String get(Level world, BlockPos pos) { return MAP.get(pos); }
+              public static void putName(BlockPos pos, String name) { MAP.put(pos, name); }
+              public static String getClientName(Level world, BlockPos pos) { return MAP.get(pos); }
               public static void remove(BlockPos pos) { MAP.remove(pos); }
           }
           EOF
 
-          cat > src/main/java/com/example/groundtexture/mixin/PlaceMixin.java <<'EOF'
-          package com.example.groundtexture.mixin;
-          import com.example.groundtexture.TextureData;
+          cat > src/main/java/com/example/namedobsidian/mixin/PlaceMixin.java <<'EOF'
+          package com.example.namedobsidian.mixin;
+          import com.example.namedobsidian.ObsidianData;
           import net.minecraft.core.BlockPos;
           import net.minecraft.world.InteractionResult;
           import net.minecraft.world.item.BlockItem;
@@ -131,7 +146,6 @@ jobs:
           import org.spongepowered.asm.mixin.injection.At;
           import org.spongepowered.asm.mixin.injection.Inject;
           import org.spongepowered.asm.mixin.injection.callback.CallbackInfoReturnable;
-
           @Mixin(BlockItem.class)
           public class PlaceMixin {
               @Inject(method = "place", at = @At("RETURN"))
@@ -142,7 +156,7 @@ jobs:
                           BlockPos pos = context.getClickedPos();
                           String name = context.getItemInHand().getDisplayName().getString();
                           if ("Void.exp".equals(name) || "<SKY.GEM>".equals(name)) {
-                              TextureData.put(pos, name);
+                              ObsidianData.putName(pos, name);
                           }
                       }
                   }
@@ -150,53 +164,74 @@ jobs:
           }
           EOF
 
-          cat > src/main/java/com/example/groundtexture/mixin/BlockRenderDispatcherMixin.java <<'EOF'
-          package com.example.groundtexture.mixin;
-          import com.example.groundtexture.TextureData;
-          import net.minecraft.client.Minecraft;
-          import net.minecraft.client.renderer.block.BlockRenderDispatcher;
-          import net.minecraft.client.resources.model.BakedModel;
-          import net.minecraft.client.resources.model.ModelResourceLocation;
+          cat > src/main/java/com/example/namedobsidian/mixin/BlockRemoveMixin.java <<'EOF'
+          package com.example.namedobsidian.mixin;
+          import com.example.namedobsidian.ObsidianData;
           import net.minecraft.core.BlockPos;
-          import net.minecraft.resources.ResourceLocation;
-          import net.minecraft.world.level.BlockAndTintGetter;
           import net.minecraft.world.level.Level;
-          import net.minecraft.world.level.block.Blocks;
+          import net.minecraft.world.level.block.Block;
           import net.minecraft.world.level.block.state.BlockState;
           import org.spongepowered.asm.mixin.Mixin;
           import org.spongepowered.asm.mixin.injection.At;
-          import org.spongepowered.asm.mixin.injection.ModifyVariable;
-
-          @Mixin(BlockRenderDispatcher.class)
-          public class BlockRenderDispatcherMixin {
-              @ModifyVariable(method = "renderBlock", at = @At("HEAD"), argsOnly = true, index = 3)
-              private BakedModel replaceModel(BakedModel original, BlockState state, BlockPos pos, BlockAndTintGetter world) {
-                  if (world instanceof Level) {
-                      Level level = (Level) world;
-                      if (!level.isClientSide()) return original;
-                      String name = TextureData.get(level, pos);
-                      if (name == null) return original;
-                      Minecraft client = Minecraft.getInstance();
-                      if (state.getBlock() == Blocks.OBSIDIAN && "Void.exp".equals(name)) {
-                          BakedModel custom = client.getModelManager().getModel(new ModelResourceLocation(
-                              ResourceLocation.withDefaultNamespace("block/obsidian_void"), ""));
-                          if (custom != null) return custom;
-                      } else if (state.getBlock() == Blocks.CRYING_OBSIDIAN && "<SKY.GEM>".equals(name)) {
-                          BakedModel custom = client.getModelManager().getModel(new ModelResourceLocation(
-                              ResourceLocation.withDefaultNamespace("block/crying_obsidian_sky"), ""));
-                          if (custom != null) return custom;
-                      }
+          import org.spongepowered.asm.mixin.injection.Inject;
+          import org.spongepowered.asm.mixin.injection.callback.CallbackInfo;
+          @Mixin(Block.class)
+          public class BlockRemoveMixin {
+              @Inject(method = "onRemove", at = @At("HEAD"))
+              private void onRemove(BlockState state, Level world, BlockPos pos, BlockState newState, boolean moved, CallbackInfo ci) {
+                  if (world.isClientSide()) {
+                      ObsidianData.remove(pos);
                   }
-                  return original;
               }
           }
           EOF
 
-          cat > src/main/resources/assets/minecraft/models/block/obsidian_void.json <<'EOF'
-          {"parent":"minecraft:block/cube_all","textures":{"all":"minecraft:block/obsidian_void"}}
+          cat > src/main/resources/assets/minecraft/models/item/obsidian.json <<'EOF'
+          {
+            "parent": "minecraft:item/generated",
+            "textures": { "layer0": "minecraft:item/obsidian" },
+            "overrides": [
+              { "predicate": { "minecraft:void": 1 }, "model": "minecraft:item/obsidian_void" }
+            ]
+          }
           EOF
+
+          cat > src/main/resources/assets/minecraft/models/item/obsidian_void.json <<'EOF'
+          {
+            "parent": "minecraft:block/cube_all",
+            "textures": { "all": "minecraft:block/obsidian_void" }
+          }
+          EOF
+
+          cat > src/main/resources/assets/minecraft/models/item/crying_obsidian.json <<'EOF'
+          {
+            "parent": "minecraft:item/generated",
+            "textures": { "layer0": "minecraft:item/crying_obsidian" },
+            "overrides": [
+              { "predicate": { "minecraft:sky": 1 }, "model": "minecraft:item/crying_obsidian_sky" }
+            ]
+          }
+          EOF
+
+          cat > src/main/resources/assets/minecraft/models/item/crying_obsidian_sky.json <<'EOF'
+          {
+            "parent": "minecraft:block/cube_all",
+            "textures": { "all": "minecraft:block/crying_obsidian_sky" }
+          }
+          EOF
+
+          cat > src/main/resources/assets/minecraft/models/block/obsidian_void.json <<'EOF'
+          {
+            "parent": "minecraft:block/cube_all",
+            "textures": { "all": "minecraft:block/obsidian_void" }
+          }
+          EOF
+
           cat > src/main/resources/assets/minecraft/models/block/crying_obsidian_sky.json <<'EOF'
-          {"parent":"minecraft:block/cube_all","textures":{"all":"minecraft:block/crying_obsidian_sky"}}
+          {
+            "parent": "minecraft:block/cube_all",
+            "textures": { "all": "minecraft:block/crying_obsidian_sky" }
+          }
           EOF
 
           echo "✅ 所有源码生成完毕！"
@@ -207,16 +242,18 @@ jobs:
           java-version: '21'
           distribution: 'temurin'
 
-      - name: Setup Gradle 8.10.2
-        uses: gradle/actions/setup-gradle@v3
-        with:
-          gradle-version: 8.10.2
+      - name: 下载 Gradle 8.10.2
+        run: |
+          wget https://services.gradle.org/distributions/gradle-8.10.2-bin.zip
+          unzip -q gradle-8.10.2-bin.zip
+          echo "GRADLE_HOME=$(pwd)/gradle-8.10.2" >> $GITHUB_ENV
+          echo "$(pwd)/gradle-8.10.2/bin" >> $GITHUB_PATH
 
       - name: Build
-        run: gradle build --no-daemon --stacktrace
+        run: gradle build --no-daemon
 
       - name: Upload
         uses: actions/upload-artifact@v4
         with:
-          name: ground_texture
+          name: sbx_frag_7
           path: build/libs/*.jar
