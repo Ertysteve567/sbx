@@ -199,12 +199,13 @@ jobs:
           import org.spongepowered.asm.mixin.injection.Inject;
           import org.spongepowered.asm.mixin.injection.callback.CallbackInfo;
 
-          @Mixin(BlockRenderDispatcher.class)
+          @Mixin(targets = "net.minecraft.class_776") // BlockRenderDispatcher
           public class BlockRenderDispatcherMixin {
               public static final ThreadLocal<BlockState> CURRENT_STATE = new ThreadLocal<>();
               public static final ThreadLocal<BlockPos> CURRENT_POS = new ThreadLocal<>();
 
-              @Inject(method = "renderBlock", at = @At("HEAD"))
+              // renderBlock 的中间映射名：method_39104
+              @Inject(method = "method_39104", at = @At("HEAD"), remap = false)
               private void captureState(BlockState state, BlockPos pos, CallbackInfo ci) {
                   CURRENT_STATE.set(state);
                   CURRENT_POS.set(pos);
@@ -228,10 +229,10 @@ jobs:
           import org.spongepowered.asm.mixin.injection.At;
           import org.spongepowered.asm.mixin.injection.ModifyVariable;
 
-          @Mixin(ModelManager.class)
+          @Mixin(targets = "net.minecraft.class_4084") // ModelManager
           public class ModelManagerMixin {
-              @ModifyVariable(method = "getModel", at = @At("HEAD"), argsOnly = true, index = 0)
-              private BakedModel replaceModel(BakedModel original, ModelResourceLocation location) {
+              @ModifyVariable(method = "getModel", at = @At("RETURN"), ordinal = 0)
+              private BakedModel replaceReturn(BakedModel original, ModelResourceLocation location) {
                   BlockState state = BlockRenderDispatcherMixin.CURRENT_STATE.get();
                   BlockPos pos = BlockRenderDispatcherMixin.CURRENT_POS.get();
                   if (state == null || pos == null) return original;
