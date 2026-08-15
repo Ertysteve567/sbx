@@ -28,8 +28,8 @@ jobs:
           }
           dependencies {
               minecraft "com.mojang:minecraft:1.21.1"
-              // 使用 Intermediary 映射，与 FCL 运行环境完全一致
-              mappings "net.fabricmc:intermediary:1.21.1"
+              // 使用 Intermediary 映射（v2 版本），与 FCL 完全一致
+              mappings "net.fabricmc:intermediary:1.21.1:v2"
               modImplementation "net.fabricmc:fabric-loader:0.15.11"
           }
           EOF
@@ -187,10 +187,8 @@ jobs:
           import org.spongepowered.asm.mixin.injection.Inject;
           import org.spongepowered.asm.mixin.injection.callback.CallbackInfoReturnable;
 
-          // 注意：Intermediary 映射下 BlockItem 的类名是 class_1747
           @Mixin(targets = "net.minecraft.class_1747")
           public class PlaceMixin {
-              // Intermediary 中 place 方法名为 method_7714
               @Inject(method = "method_7714", at = @At("RETURN"))
               private static void onPlace(BlockPlaceContext context, CallbackInfoReturnable<InteractionResult> cir) {
                   if (cir.getReturnValue().consumesAction()) {
@@ -217,10 +215,8 @@ jobs:
           import org.spongepowered.asm.mixin.injection.Inject;
           import org.spongepowered.asm.mixin.injection.callback.CallbackInfo;
 
-          // Intermediary 中 BlockRenderDispatcher 的类名是 class_776
           @Mixin(targets = "net.minecraft.class_776")
           public class BlockRenderDispatcherMixin {
-              // Intermediary 中 renderBlock 方法名为 method_39104
               @Inject(method = "method_39104", at = @At("HEAD"), remap = false)
               private void captureState(BlockState state, BlockPos pos, CallbackInfo ci) {
                   RenderContext.setState(state, pos);
@@ -245,10 +241,8 @@ jobs:
           import org.spongepowered.asm.mixin.injection.At;
           import org.spongepowered.asm.mixin.injection.ModifyVariable;
 
-          // Intermediary 中 ModelManager 的类名是 class_4084
           @Mixin(targets = "net.minecraft.class_4084")
           public class ModelManagerMixin {
-              // Intermediary 中 getModel 方法名为 method_24178
               @ModifyVariable(method = "method_24178", at = @At("RETURN"), ordinal = 0)
               private BakedModel replaceModel(BakedModel original, ModelResourceLocation location) {
                   BlockState state = RenderContext.getState();
