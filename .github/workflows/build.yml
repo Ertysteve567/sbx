@@ -10,8 +10,7 @@ jobs:
 
       - name: 生成所有源代码
         run: |
-          mkdir -p src/main/java/com/example/namedobsidian
-          mkdir -p src/client/java/com/example/namedobsidian/mixin
+          mkdir -p src/main/java/com/example/namedobsidian/mixin
           mkdir -p src/main/resources/assets/minecraft/models/block
           mkdir -p src/main/resources/assets/minecraft/models/item
           mkdir -p gradle/wrapper
@@ -32,9 +31,6 @@ jobs:
               mappings loom.officialMojangMappings()
               modImplementation "net.fabricmc:fabric-loader:0.15.11"
               modImplementation "net.fabricmc.fabric-api:fabric-api:0.116.8+1.21.1"
-          }
-          loom {
-              splitEnvironmentSourceSets()
           }
           EOF
 
@@ -122,7 +118,7 @@ jobs:
           }
           EOF
 
-          cat > src/client/java/com/example/namedobsidian/NamedObsidianClient.java <<'EOF'
+          cat > src/main/java/com/example/namedobsidian/NamedObsidianClient.java <<'EOF'
           package com.example.namedobsidian;
           import net.fabricmc.api.ClientModInitializer;
           import net.fabricmc.fabric.api.client.model.ModelPredicateProviderRegistry;
@@ -131,7 +127,6 @@ jobs:
           public class NamedObsidianClient implements ClientModInitializer {
               @Override
               public void onInitializeClient() {
-                  // 使用 Fabric API 公开方法，无需反射
                   ModelPredicateProviderRegistry.register(Items.OBSIDIAN,
                       ResourceLocation.withDefaultNamespace("void"),
                       (stack, world, entity, seed) -> {
@@ -146,12 +141,12 @@ jobs:
                           return "<SKY.GEM>".equals(name) ? 1.0f : 0.0f;
                       }
                   );
-                  System.out.println("[sbx_frag_7] 物品栏纹理注册成功（Fabric API）");
+                  System.out.println("[sbx_frag_7] 物品栏纹理注册成功");
               }
           }
           EOF
 
-          cat > src/client/java/com/example/namedobsidian/mixin/PlaceMixin.java <<'EOF'
+          cat > src/main/java/com/example/namedobsidian/mixin/PlaceMixin.java <<'EOF'
           package com.example.namedobsidian.mixin;
           import com.example.namedobsidian.ObsidianData;
           import net.minecraft.core.BlockPos;
@@ -181,7 +176,7 @@ jobs:
           }
           EOF
 
-          cat > src/client/java/com/example/namedobsidian/mixin/BlockRenderDispatcherMixin.java <<'EOF'
+          cat > src/main/java/com/example/namedobsidian/mixin/BlockRenderDispatcherMixin.java <<'EOF'
           package com.example.namedobsidian.mixin;
           import com.example.namedobsidian.ObsidianData;
           import net.minecraft.client.Minecraft;
@@ -201,12 +196,10 @@ jobs:
 
           @Mixin(BlockRenderDispatcher.class)
           public class BlockRenderDispatcherMixin {
-              // 当前正在渲染的 BlockState（用于获取方块类型）
               private static final ThreadLocal<BlockState> CURRENT_STATE = new ThreadLocal<>();
               private static final ThreadLocal<BlockPos> CURRENT_POS = new ThreadLocal<>();
 
               // 在 renderBlock 开头记录 BlockState 和 BlockPos
-              // 使用硬编码签名，如果报错就说明签名不匹配
               @WrapOperation(
                   method = "method_39104",
                   at = @At(value = "HEAD")
@@ -228,14 +221,12 @@ jobs:
                       return modelManager.getModel(originalLocation);
                   }
 
-                  // 检查是否是黑曜石或哭泣黑曜石
                   boolean isObsidian = state.getBlock() == Blocks.OBSIDIAN;
                   boolean isCrying = state.getBlock() == Blocks.CRYING_OBSIDIAN;
                   if (!isObsidian && !isCrying) {
                       return modelManager.getModel(originalLocation);
                   }
 
-                  // 获取位置信息
                   Minecraft client = Minecraft.getInstance();
                   if (client == null || client.level == null) {
                       return modelManager.getModel(originalLocation);
@@ -246,7 +237,6 @@ jobs:
                       return modelManager.getModel(originalLocation);
                   }
 
-                  // 黑曜石：Void.exp
                   if (isObsidian && "Void.exp".equals(name)) {
                       ModelResourceLocation customLoc = new ModelResourceLocation(
                           ResourceLocation.withDefaultNamespace("block/obsidian_void"), "");
@@ -254,9 +244,7 @@ jobs:
                       if (custom != null && custom != modelManager.getMissingModel()) {
                           return custom;
                       }
-                  }
-                  // 哭泣黑曜石：<SKY.GEM>
-                  else if (isCrying && "<SKY.GEM>".equals(name)) {
+                  } else if (isCrying && "<SKY.GEM>".equals(name)) {
                       ModelResourceLocation customLoc = new ModelResourceLocation(
                           ResourceLocation.withDefaultNamespace("block/crying_obsidian_sky"), "");
                       BakedModel custom = modelManager.getModel(customLoc);
