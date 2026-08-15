@@ -66,7 +66,7 @@ jobs:
             "id": "sbx_frag_7",
             "version": "1.0.0",
             "name": "<SBX://PROJ.FRAG-7/ACCESS:Ω>",
-            "description": "铁砧命名改变纹理（物品栏 + 地面）",
+            "description": "铁砧命名记录模组（配合 CIT Resewn 使用）",
             "authors": ["You"],
             "license": "MIT",
             "environment": "client",
@@ -89,8 +89,7 @@ jobs:
             "package": "com.example.namedobsidian.mixin",
             "compatibilityLevel": "JAVA_21",
             "client": [
-              "PlaceMixin",
-              "ModelManagerMixin"
+              "PlaceMixin"
             ],
             "injectors": { "defaultRequire": 1 }
           }
@@ -108,14 +107,14 @@ jobs:
 
           cat > src/main/java/com/example/namedobsidian/ObsidianData.java <<'EOF'
           package com.example.namedobsidian;
-          import net.minecraft.class_2338; // BlockPos
-          import net.minecraft.class_1937; // Level
+          import net.minecraft.core.BlockPos;
+          import net.minecraft.world.level.Level;
           import java.util.concurrent.ConcurrentHashMap;
           public class ObsidianData {
-              public static final ConcurrentHashMap<class_2338, String> MAP = new ConcurrentHashMap<>();
-              public static void putName(class_2338 pos, String name) { MAP.put(pos, name); }
-              public static String getClientName(class_1937 world, class_2338 pos) { return MAP.get(pos); }
-              public static void remove(class_2338 pos) { MAP.remove(pos); }
+              private static final ConcurrentHashMap<BlockPos, String> MAP = new ConcurrentHashMap<>();
+              public static void putName(BlockPos pos, String name) { MAP.put(pos, name); }
+              public static String getClientName(Level world, BlockPos pos) { return MAP.get(pos); }
+              public static void remove(BlockPos pos) { MAP.remove(pos); }
           }
           EOF
 
@@ -125,7 +124,7 @@ jobs:
           public class NamedObsidianClient implements ClientModInitializer {
               @Override
               public void onInitializeClient() {
-                  System.out.println("[sbx_frag_7] 客户端已加载");
+                  System.out.println("[sbx_frag_7] 客户端已加载（物品栏纹理请使用 CIT Resewn）");
               }
           }
           EOF
@@ -133,24 +132,24 @@ jobs:
           cat > src/main/java/com/example/namedobsidian/mixin/PlaceMixin.java <<'EOF'
           package com.example.namedobsidian.mixin;
           import com.example.namedobsidian.ObsidianData;
-          import net.minecraft.class_2338; // BlockPos
-          import net.minecraft.class_1937; // Level
-          import net.minecraft.class_1751; // BlockPlaceContext
-          import net.minecraft.class_1268; // InteractionResult
+          import net.minecraft.core.BlockPos;
+          import net.minecraft.world.InteractionResult;
+          import net.minecraft.world.item.BlockItem;
+          import net.minecraft.world.item.context.BlockPlaceContext;
+          import net.minecraft.world.level.Level;
           import org.spongepowered.asm.mixin.Mixin;
           import org.spongepowered.asm.mixin.injection.At;
           import org.spongepowered.asm.mixin.injection.Inject;
           import org.spongepowered.asm.mixin.injection.callback.CallbackInfoReturnable;
 
-          @Mixin(targets = "net.minecraft.class_1747") // BlockItem
+          @Mixin(BlockItem.class)
           public class PlaceMixin {
-              // 1.21.1 中 BlockItem.place 的中间映射名为 method_7714
-              @Inject(method = "method_7714", at = @At("RETURN"), remap = false)
-              private static void onPlace(class_1751 context, CallbackInfoReturnable<class_1268> cir) {
+              @Inject(method = "place", at = @At("RETURN"))
+              private static void onPlace(BlockPlaceContext context, CallbackInfoReturnable<InteractionResult> cir) {
                   if (cir.getReturnValue().consumesAction()) {
-                      class_1937 world = context.getLevel();
+                      Level world = context.getLevel();
                       if (world.isClientSide()) {
-                          class_2338 pos = context.getClickedPos();
+                          BlockPos pos = context.getClickedPos();
                           String name = context.getItemInHand().getDisplayName().getString();
                           if ("Void.exp".equals(name) || "<SKY.GEM>".equals(name)) {
                               ObsidianData.putName(pos, name);
@@ -158,65 +157,6 @@ jobs:
                       }
                   }
               }
-          }
-          EOF
-
-          cat > src/main/java/com/example/namedobsidian/mixin/ModelManagerMixin.java <<'EOF'
-          package com.example.namedobsidian.mixin;
-          import com.example.namedobsidian.ObsidianData;
-          import net.minecraft.class_310; // Minecraft
-          import net.minecraft.class_1088; // BakedModel
-          import net.minecraft.class_1087; // ModelManager
-          import net.minecraft.class_1089; // ModelLoader
-          import net.minecraft.class_2338; // BlockPos
-          import net.minecraft.class_2960; // ResourceLocation
-          import net.minecraft.class_1937; // Level
-          import net.minecraft.class_2246; // Blocks
-          import org.spongepowered.asm.mixin.Mixin;
-          import org.spongepowered.asm.mixin.injection.At;
-          import org.spongepowered.asm.mixin.injection.ModifyReturnValue;
-
-          @Mixin(targets = "net.minecraft.class_1087") // ModelManager
-          public class ModelManagerMixin {
-              // 1.21.1 中 replaceModel 方法只有一个参数（ModelLoader），返回 BakedModel
-              // 使用 @ModifyReturnValue 修改返回值
-              @ModifyReturnValue(method = "replaceModel", at = @At("RETURN"))
-              private class_1088 replaceModel(class_1088 original, class_1089 loader) {
-                  class_310 client = class_310.getInstance();
-                  if (client == null || client.level == null) return original;
-                  class_1937 level = client.level;
-                  for (class_2338 pos : ObsidianData.MAP.keySet()) {
-                      if (!level.isLoaded(pos)) continue;
-                      String name = ObsidianData.getClientName(level, pos);
-                      if (name == null) continue;
-                      if (level.getBlockState(pos).getBlock() == class_2246.OBSIDIAN && "Void.exp".equals(name)) {
-                          class_1087 manager = (class_1087)(Object)this;
-                          class_1090 customLoc = new class_1090(class_2960.withDefaultNamespace("block/obsidian_void"), "");
-                          class_1088 custom = manager.getModel(customLoc);
-                          if (custom != null && custom != manager.getMissingModel()) return custom;
-                      } else if (level.getBlockState(pos).getBlock() == class_2246.CRYING_OBSIDIAN && "<SKY.GEM>".equals(name)) {
-                          class_1087 manager = (class_1087)(Object)this;
-                          class_1090 customLoc = new class_1090(class_2960.withDefaultNamespace("block/crying_obsidian_sky"), "");
-                          class_1088 custom = manager.getModel(customLoc);
-                          if (custom != null && custom != manager.getMissingModel()) return custom;
-                      }
-                  }
-                  return original;
-              }
-          }
-          EOF
-
-          cat > src/main/resources/assets/minecraft/models/block/obsidian_void.json <<'EOF'
-          {
-            "parent": "minecraft:block/cube_all",
-            "textures": { "all": "minecraft:block/obsidian_void" }
-          }
-          EOF
-
-          cat > src/main/resources/assets/minecraft/models/block/crying_obsidian_sky.json <<'EOF'
-          {
-            "parent": "minecraft:block/cube_all",
-            "textures": { "all": "minecraft:block/crying_obsidian_sky" }
           }
           EOF
 
