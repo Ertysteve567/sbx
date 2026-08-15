@@ -178,7 +178,6 @@ jobs:
 
           @Mixin(BlockItem.class)
           public class PlaceMixin {
-              // 目标方法: method_7714(Level world, Player player, BlockPos pos, ItemStack stack)
               @Inject(method = "method_7714", at = @At("RETURN"))
               private static void onPlace(Level world, Player player, BlockPos pos, ItemStack stack, CallbackInfoReturnable<InteractionResult> cir) {
                   if (cir.getReturnValue().consumesAction()) {
@@ -212,7 +211,7 @@ jobs:
 
           @Mixin(BlockRenderDispatcher.class)
           public class BlockRenderDispatcherMixin {
-              // 使用 1.21.1 中间映射方法名：renderBlock -> method_39104
+              // 修正参数顺序：BlockState, BlockPos, BlockAndTintGetter, BakedModel
               @ModifyVariable(
                   method = "method_39104",
                   at = @At("HEAD"),
@@ -220,10 +219,10 @@ jobs:
                   index = 3
               )
               private BakedModel replaceModel(
-                  BakedModel original,
                   BlockState state,
                   BlockPos pos,
-                  BlockAndTintGetter world
+                  BlockAndTintGetter world,
+                  BakedModel original
               ) {
                   if (!(world instanceof Level level)) return original;
                   if (!level.isClientSide()) return original;
