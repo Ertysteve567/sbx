@@ -208,13 +208,13 @@ jobs:
 
           @Mixin(BlockRenderDispatcher.class)
           public class BlockRenderDispatcherMixin {
-              // 使用 target 参数指定完整的方法签名（中间映射名）
-              // 如果这个签名不匹配，让你朋友在 IDE 中复制 BlockRenderDispatcher.renderBlock 的完整签名替换
+              // 使用中间映射描述符 + remap=false，避免映射转换问题
               @ModifyVariable(
-                  target = "Lnet/minecraft/client/renderer/block/BlockRenderDispatcher;renderBlock(Lnet/minecraft/class_2680;Lnet/minecraft/class_2338;Lnet/minecraft/class_1920;Lnet/minecraft/class_1087;)V",
+                  method = "renderBlock(Lnet/minecraft/class_2680;Lnet/minecraft/class_2338;Lnet/minecraft/class_1920;Lnet/minecraft/class_1087;)V",
                   at = @At("HEAD"),
                   argsOnly = true,
-                  index = 3
+                  index = 3,
+                  remap = false
               )
               private BakedModel replaceModel(
                   BlockState state,
