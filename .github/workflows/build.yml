@@ -42,8 +42,8 @@ jobs:
           }
           dependencies {
               minecraft "com.mojang:minecraft:1.21.1"
-              // 使用 Yarn 映射，让 Loom 自动选择最新版本
-              mappings "net.fabricmc:yarn:1.21.1"
+              // 使用确凿存在的 Yarn 映射版本
+              mappings "net.fabricmc:yarn:1.21.1+build.1"
               modImplementation "net.fabricmc:fabric-loader:0.15.11"
           }
           EOF
@@ -126,7 +126,7 @@ jobs:
           public class NamedObsidianClient implements ClientModInitializer {
               @Override
               public void onInitializeClient() {
-                  System.out.println("[sbx_frag_7] 客户端已加载（物品栏纹理请配合 CIT Resewn）");
+                  System.out.println("[sbx_frag_7] 客户端已加载");
               }
           }
           EOF
