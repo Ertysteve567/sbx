@@ -44,18 +44,13 @@ jobs:
           }
 
           loom {
-              // 使用官方映射
-              setMappings(mappings("net.minecraft:minecraft:1.21.1:official"))
+              // 使用官方映射（正确写法）
+              mappings loom.officialMojangMappings()
           }
 
           dependencies {
-              // 【关键】添加 Minecraft 本体依赖
               minecraft "com.mojang:minecraft:1.21.1"
-
-              // Fabric Loader
               modImplementation "net.fabricmc:fabric-loader:0.15.11"
-
-              // Fabric API
               modImplementation "net.fabricmc.fabric-api:fabric-api:0.116.15+1.21.1"
           }
 
@@ -197,7 +192,6 @@ jobs:
 
           @Mixin(ModelManager.class)
           public class ModelManagerMixin {
-              // 使用 @ModifyVariable 修改返回值（替换 @ModifyReturnValue）
               @ModifyVariable(method = "replaceModel", at = @At("RETURN"), ordinal = 0)
               private BakedModel replaceModel(BakedModel original) {
                   Minecraft client = Minecraft.getInstance();
