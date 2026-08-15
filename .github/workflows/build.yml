@@ -173,7 +173,6 @@ jobs:
 
           @Mixin(BlockItem.class)
           public class PlaceMixin {
-              // 官方映射中 place 方法签名：place(BlockPlaceContext)
               @Inject(method = "place", at = @At("RETURN"))
               private static void onPlace(BlockPlaceContext context, CallbackInfoReturnable<InteractionResult> cir) {
                   if (cir.getReturnValue().consumesAction()) {
@@ -209,9 +208,10 @@ jobs:
 
           @Mixin(BlockRenderDispatcher.class)
           public class BlockRenderDispatcherMixin {
-              // 官方映射中 renderBlock 方法签名
+              // 使用 target 参数指定完整的方法签名（中间映射名）
+              // 如果这个签名不匹配，让你朋友在 IDE 中复制 BlockRenderDispatcher.renderBlock 的完整签名替换
               @ModifyVariable(
-                  method = "renderBlock",
+                  target = "Lnet/minecraft/client/renderer/block/BlockRenderDispatcher;renderBlock(Lnet/minecraft/class_2680;Lnet/minecraft/class_2338;Lnet/minecraft/class_1920;Lnet/minecraft/class_1087;)V",
                   at = @At("HEAD"),
                   argsOnly = true,
                   index = 3
