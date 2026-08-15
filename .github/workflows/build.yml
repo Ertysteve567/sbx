@@ -211,7 +211,7 @@ jobs:
 
           @Mixin(BlockRenderDispatcher.class)
           public class BlockRenderDispatcherMixin {
-              // 修正参数顺序：BlockState, BlockPos, BlockAndTintGetter, BakedModel
+              // 注意：如果 method_39104 仍然无效，请让朋友在 IDE 中复制 BlockRenderDispatcher.renderBlock 的中间映射名替换
               @ModifyVariable(
                   method = "method_39104",
                   at = @At("HEAD"),
