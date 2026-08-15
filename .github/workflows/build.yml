@@ -178,8 +178,9 @@ jobs:
           @Mixin(BlockItem.class)
           public class PlaceMixin {
               // 使用 1.21.1 中间映射方法名：place -> method_7714
+              // 目标方法是静态的，回调也必须是 static
               @Inject(method = "method_7714", at = @At("RETURN"))
-              private void onPlace(BlockPlaceContext context, CallbackInfoReturnable<InteractionResult> cir) {
+              private static void onPlace(BlockPlaceContext context, CallbackInfoReturnable<InteractionResult> cir) {
                   if (cir.getReturnValue().consumesAction()) {
                       Level world = context.getLevel();
                       if (world.isClientSide()) {
