@@ -166,7 +166,6 @@ jobs:
           import com.example.namedobsidian.ObsidianData;
           import net.minecraft.client.Minecraft;
           import net.minecraft.client.resources.model.BakedModel;
-          import net.minecraft.client.resources.model.ModelLoader;
           import net.minecraft.client.resources.model.ModelManager;
           import net.minecraft.client.resources.model.ModelResourceLocation;
           import net.minecraft.core.BlockPos;
@@ -179,8 +178,14 @@ jobs:
 
           @Mixin(ModelManager.class)
           public class ModelManagerMixin {
-              @ModifyVariable(method = "replaceModel", at = @At("RETURN"), ordinal = 0)
-              private BakedModel replaceModel(BakedModel original, ModelLoader loader) {
+              // 使用混淆名 class_1089（ModelLoader）
+              @ModifyVariable(
+                  method = "replaceModel(Lnet/minecraft/class_1089;)Lnet/minecraft/client/resources/model/BakedModel;",
+                  at = @At("RETURN"),
+                  ordinal = 0,
+                  remap = false
+              )
+              private BakedModel replaceModel(BakedModel original, net.minecraft.class_1089 loader) {
                   Minecraft client = Minecraft.getInstance();
                   if (client == null || client.level == null) return original;
                   Level level = client.level;
