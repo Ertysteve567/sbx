@@ -104,6 +104,35 @@ jobs:
           }
           EOF
 
+          cat > src/main/java/com/example/namedobsidian/RenderContext.java <<'EOF'
+          package com.example.namedobsidian;
+          import net.minecraft.core.BlockPos;
+          import net.minecraft.world.level.block.state.BlockState;
+
+          public class RenderContext {
+              private static final ThreadLocal<BlockState> CURRENT_STATE = new ThreadLocal<>();
+              private static final ThreadLocal<BlockPos> CURRENT_POS = new ThreadLocal<>();
+
+              public static void setState(BlockState state, BlockPos pos) {
+                  CURRENT_STATE.set(state);
+                  CURRENT_POS.set(pos);
+              }
+
+              public static BlockState getState() {
+                  return CURRENT_STATE.get();
+              }
+
+              public static BlockPos getPos() {
+                  return CURRENT_POS.get();
+              }
+
+              public static void clear() {
+                  CURRENT_STATE.remove();
+                  CURRENT_POS.remove();
+              }
+          }
+          EOF
+
           cat > src/main/java/com/example/namedobsidian/ObsidianData.java <<'EOF'
           package com.example.namedobsidian;
           import net.minecraft.core.BlockPos;
@@ -153,7 +182,7 @@ jobs:
                       );
                       System.out.println("[sbx_frag_7] 物品栏纹理注册成功");
                   } catch (Exception e) {
-                      System.err.println("[sbx_frag_7] 物品栏纹理注册失败");
+                      System.err.println("[sbx_frag_7] 物品栏纹理注册失败（不影响地面功能）");
                   }
               }
           }
@@ -192,29 +221,20 @@ jobs:
 
           cat > src/main/java/com/example/namedobsidian/mixin/BlockRenderDispatcherMixin.java <<'EOF'
           package com.example.namedobsidian.mixin;
+          import com.example.namedobsidian.RenderContext;
           import net.minecraft.core.BlockPos;
           import net.minecraft.world.level.block.state.BlockState;
           import org.spongepowered.asm.mixin.Mixin;
-          import org.spongepowered.asm.mixin.Unique;
           import org.spongepowered.asm.mixin.injection.At;
           import org.spongepowered.asm.mixin.injection.Inject;
           import org.spongepowered.asm.mixin.injection.callback.CallbackInfo;
 
           @Mixin(targets = "net.minecraft.class_776") // BlockRenderDispatcher
           public class BlockRenderDispatcherMixin {
-              @Unique
-              private static final ThreadLocal<BlockState> CURRENT_STATE = new ThreadLocal<>();
-              @Unique
-              private static final ThreadLocal<BlockPos> CURRENT_POS = new ThreadLocal<>();
-
-              public static ThreadLocal<BlockState> getCurrentState() { return CURRENT_STATE; }
-              public static ThreadLocal<BlockPos> getCurrentPos() { return CURRENT_POS; }
-
-              // renderBlock 的中间映射名：method_39104
+              // 使用独立的 RenderContext 存储状态，避免在 Mixin 中定义静态字段
               @Inject(method = "method_39104", at = @At("HEAD"), remap = false)
               private void captureState(BlockState state, BlockPos pos, CallbackInfo ci) {
-                  CURRENT_STATE.set(state);
-                  CURRENT_POS.set(pos);
+                  RenderContext.setState(state, pos);
               }
           }
           EOF
@@ -222,6 +242,7 @@ jobs:
           cat > src/main/java/com/example/namedobsidian/mixin/ModelManagerMixin.java <<'EOF'
           package com.example.namedobsidian.mixin;
           import com.example.namedobsidian.ObsidianData;
+          import com.example.namedobsidian.RenderContext;
           import net.minecraft.client.Minecraft;
           import net.minecraft.client.resources.model.BakedModel;
           import net.minecraft.client.resources.model.ModelManager;
@@ -238,9 +259,9 @@ jobs:
           @Mixin(ModelManager.class)
           public class ModelManagerMixin {
               @ModifyVariable(method = "getModel", at = @At("RETURN"), ordinal = 0)
-              private BakedModel replaceReturn(BakedModel original, ModelResourceLocation location) {
-                  BlockState state = BlockRenderDispatcherMixin.getCurrentState().get();
-                  BlockPos pos = BlockRenderDispatcherMixin.getCurrentPos().get();
+              private BakedModel replaceModel(BakedModel original, ModelResourceLocation location) {
+                  BlockState state = RenderContext.getState();
+                  BlockPos pos = RenderContext.getPos();
                   if (state == null || pos == null) return original;
                   boolean isObsidian = state.getBlock() == Blocks.OBSIDIAN;
                   boolean isCrying = state.getBlock() == Blocks.CRYING_OBSIDIAN;
