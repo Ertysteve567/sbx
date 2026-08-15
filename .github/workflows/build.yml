@@ -31,7 +31,7 @@ jobs:
 
           cat > build.gradle <<'EOF'
           plugins {
-              id 'fabric-loom' version '1.8.13'
+              id 'fabric-loom' version '1.7.4'
               id 'maven-publish'
           }
           version = "1.0.0"
@@ -42,9 +42,11 @@ jobs:
           }
           dependencies {
               minecraft "com.mojang:minecraft:1.21.1"
-              // 使用与 FCL 一致的 Yarn 映射版本
-              mappings "net.fabricmc:yarn:1.21.1+build.3:v2"
+              mappings loom.officialMojangMappings()
               modImplementation "net.fabricmc:fabric-loader:0.15.11"
+          }
+          loom {
+              // 无需额外配置，保持默认
           }
           EOF
 
@@ -67,7 +69,7 @@ jobs:
             "id": "sbx_frag_7",
             "version": "1.0.0",
             "name": "<SBX://PROJ.FRAG-7/ACCESS:Ω>",
-            "description": "铁砧命名改变黑曜石纹理（物品栏 + 地面）",
+            "description": "铁砧命名记录模组（配合 CIT Resewn 使用）",
             "authors": ["You"],
             "license": "MIT",
             "environment": "client",
@@ -90,8 +92,7 @@ jobs:
             "package": "com.example.namedobsidian.mixin",
             "compatibilityLevel": "JAVA_21",
             "client": [
-              "PlaceMixin",
-              "BlockRenderDispatcherMixin"
+              "PlaceMixin"
             ],
             "injectors": { "defaultRequire": 1 }
           }
@@ -158,24 +159,6 @@ jobs:
                           }
                       }
                   }
-              }
-          }
-          EOF
-
-          cat > src/main/java/com/example/namedobsidian/mixin/BlockRenderDispatcherMixin.java <<'EOF'
-          package com.example.namedobsidian.mixin;
-          import net.minecraft.core.BlockPos;
-          import net.minecraft.world.level.block.state.BlockState;
-          import org.spongepowered.asm.mixin.Mixin;
-          import org.spongepowered.asm.mixin.injection.At;
-          import org.spongepowered.asm.mixin.injection.Inject;
-          import org.spongepowered.asm.mixin.injection.callback.CallbackInfo;
-
-          @Mixin(BlockRenderDispatcher.class)
-          public class BlockRenderDispatcherMixin {
-              @Inject(method = "renderBlock", at = @At("HEAD"))
-              private void captureState(BlockState state, BlockPos pos, CallbackInfo ci) {
-                  // 占位方法，为将来地面纹理保留
               }
           }
           EOF
