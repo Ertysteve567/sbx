@@ -28,13 +28,11 @@ jobs:
           }
           dependencies {
               minecraft "com.mojang:minecraft:1.21.1"
-              // 使用 Yarn 映射，与 FCL 运行环境一致
-              mappings "net.fabricmc:yarn:1.21.1+build.3"
+              mappings loom.officialMojangMappings()
               modImplementation "net.fabricmc:fabric-loader:0.15.11"
           }
-          // 避免 Javadoc 错误
-          tasks.withType(GenerateModuleMetadata) {
-              enabled = false
+          loom {
+              splitEnvironmentSourceSets()
           }
           EOF
 
@@ -145,7 +143,7 @@ jobs:
                       );
                       System.out.println("[sbx_frag_7] 物品栏纹理注册成功");
                   } catch (Exception e) {
-                      System.err.println("[sbx_frag_7] 物品栏纹理注册失败（不影响游戏）");
+                      System.err.println("[sbx_frag_7] 物品栏纹理注册失败");
                   }
               }
           }
@@ -213,11 +211,8 @@ jobs:
 
           @Mixin(BlockRenderDispatcher.class)
           public class BlockRenderDispatcherMixin {
-              // 使用 Yarn 映射的中间名精确签名（与 FCL 完全匹配）
-              // 注意：参数列表按顺序：BlockState, BlockPos, BlockAndTintGetter, ... (中间省略)
-              // 这里我们只关心前三个参数，但必须精确匹配完整签名
               @ModifyVariable(
-                  method = "renderBlock(Lnet/minecraft/class_2680;Lnet/minecraft/class_2338;Lnet/minecraft/class_1920;Lnet/minecraft/class_746;Lnet/minecraft/class_1150;ZLjava/util/Random;I)V",
+                  method = "renderBlock",
                   at = @At("HEAD"),
                   argsOnly = true,
                   index = 3
