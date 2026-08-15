@@ -45,9 +45,6 @@ jobs:
               mappings loom.officialMojangMappings()
               modImplementation "net.fabricmc:fabric-loader:0.15.11"
           }
-          loom {
-              // 无需额外配置，保持默认
-          }
           EOF
 
           cat > gradle.properties <<'EOF'
@@ -69,7 +66,7 @@ jobs:
             "id": "sbx_frag_7",
             "version": "1.0.0",
             "name": "<SBX://PROJ.FRAG-7/ACCESS:Ω>",
-            "description": "铁砧命名记录模组（配合 CIT Resewn 使用）",
+            "description": "铁砧命名改变黑曜石纹理（物品栏 + 地面）",
             "authors": ["You"],
             "license": "MIT",
             "environment": "client",
@@ -92,7 +89,8 @@ jobs:
             "package": "com.example.namedobsidian.mixin",
             "compatibilityLevel": "JAVA_21",
             "client": [
-              "PlaceMixin"
+              "PlaceMixin",
+              "ModelManagerMixin"
             ],
             "injectors": { "defaultRequire": 1 }
           }
@@ -127,7 +125,7 @@ jobs:
           public class NamedObsidianClient implements ClientModInitializer {
               @Override
               public void onInitializeClient() {
-                  System.out.println("[sbx_frag_7] 客户端已加载（物品栏纹理请使用 CIT Resewn）");
+                  System.out.println("[sbx_frag_7] 客户端已加载");
               }
           }
           EOF
@@ -163,37 +161,55 @@ jobs:
           }
           EOF
 
-          cat > src/main/resources/assets/minecraft/models/item/obsidian.json <<'EOF'
-          {
-            "parent": "minecraft:item/generated",
-            "textures": { "layer0": "minecraft:item/obsidian" },
-            "overrides": [
-              { "predicate": { "minecraft:void": 1 }, "model": "minecraft:item/obsidian_void" }
-            ]
-          }
-          EOF
+          cat > src/main/java/com/example/namedobsidian/mixin/ModelManagerMixin.java <<'EOF'
+          package com.example.namedobsidian.mixin;
+          import com.example.namedobsidian.ObsidianData;
+          import net.minecraft.client.Minecraft;
+          import net.minecraft.client.resources.model.BakedModel;
+          import net.minecraft.client.resources.model.ModelManager;
+          import net.minecraft.client.resources.model.ModelResourceLocation;
+          import net.minecraft.core.BlockPos;
+          import net.minecraft.resources.ResourceLocation;
+          import net.minecraft.world.level.Level;
+          import net.minecraft.world.level.block.Blocks;
+          import net.minecraft.world.level.block.state.BlockState;
+          import org.spongepowered.asm.mixin.Mixin;
+          import org.spongepowered.asm.mixin.injection.At;
+          import org.spongepowered.asm.mixin.injection.WrapOperation;
+          import org.spongepowered.asm.mixin.injection.invoke.Operation;
 
-          cat > src/main/resources/assets/minecraft/models/item/obsidian_void.json <<'EOF'
-          {
-            "parent": "minecraft:block/cube_all",
-            "textures": { "all": "minecraft:block/obsidian_void" }
-          }
-          EOF
-
-          cat > src/main/resources/assets/minecraft/models/item/crying_obsidian.json <<'EOF'
-          {
-            "parent": "minecraft:item/generated",
-            "textures": { "layer0": "minecraft:item/crying_obsidian" },
-            "overrides": [
-              { "predicate": { "minecraft:sky": 1 }, "model": "minecraft:item/crying_obsidian_sky" }
-            ]
-          }
-          EOF
-
-          cat > src/main/resources/assets/minecraft/models/item/crying_obsidian_sky.json <<'EOF'
-          {
-            "parent": "minecraft:block/cube_all",
-            "textures": { "all": "minecraft:block/crying_obsidian_sky" }
+          @Mixin(ModelManager.class)
+          public class ModelManagerMixin {
+              @WrapOperation(
+                  method = "getModel",
+                  at = @At(value = "INVOKE", target = "Lnet/minecraft/client/resources/model/ModelManager;getModel(Lnet/minecraft/client/resources/model/ModelResourceLocation;)Lnet/minecraft/client/resources/model/BakedModel;")
+              )
+              private BakedModel wrapGetModel(ModelManager manager, ModelResourceLocation location, Operation<BakedModel> original) {
+                  Minecraft client = Minecraft.getInstance();
+                  if (client == null || client.level == null) return original.call(manager, location);
+                  Level level = client.level;
+                  // 获取当前正在渲染的方块位置（需要从渲染上下文中获取）
+                  // 由于我们无法直接获取，这里用另一种方式：检查所有已记录的位置
+                  for (BlockPos pos : ObsidianData.MAP.keySet()) {
+                      String name = ObsidianData.getClientName(level, pos);
+                      if (name == null) continue;
+                      BlockState state = level.getBlockState(pos);
+                      boolean isObsidian = state.getBlock() == Blocks.OBSIDIAN;
+                      boolean isCrying = state.getBlock() == Blocks.CRYING_OBSIDIAN;
+                      if (isObsidian && "Void.exp".equals(name)) {
+                          ModelResourceLocation customLoc = new ModelResourceLocation(
+                              ResourceLocation.withDefaultNamespace("block/obsidian_void"), "");
+                          BakedModel custom = manager.getModel(customLoc);
+                          if (custom != null && custom != manager.getMissingModel()) return custom;
+                      } else if (isCrying && "<SKY.GEM>".equals(name)) {
+                          ModelResourceLocation customLoc = new ModelResourceLocation(
+                              ResourceLocation.withDefaultNamespace("block/crying_obsidian_sky"), "");
+                          BakedModel custom = manager.getModel(customLoc);
+                          if (custom != null && custom != manager.getMissingModel()) return custom;
+                      }
+                  }
+                  return original.call(manager, location);
+              }
           }
           EOF
 
