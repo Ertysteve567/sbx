@@ -195,14 +195,20 @@ jobs:
           import net.minecraft.core.BlockPos;
           import net.minecraft.world.level.block.state.BlockState;
           import org.spongepowered.asm.mixin.Mixin;
+          import org.spongepowered.asm.mixin.Unique;
           import org.spongepowered.asm.mixin.injection.At;
           import org.spongepowered.asm.mixin.injection.Inject;
           import org.spongepowered.asm.mixin.injection.callback.CallbackInfo;
 
           @Mixin(targets = "net.minecraft.class_776") // BlockRenderDispatcher
           public class BlockRenderDispatcherMixin {
-              public static final ThreadLocal<BlockState> CURRENT_STATE = new ThreadLocal<>();
-              public static final ThreadLocal<BlockPos> CURRENT_POS = new ThreadLocal<>();
+              @Unique
+              private static final ThreadLocal<BlockState> CURRENT_STATE = new ThreadLocal<>();
+              @Unique
+              private static final ThreadLocal<BlockPos> CURRENT_POS = new ThreadLocal<>();
+
+              public static ThreadLocal<BlockState> getCurrentState() { return CURRENT_STATE; }
+              public static ThreadLocal<BlockPos> getCurrentPos() { return CURRENT_POS; }
 
               // renderBlock 的中间映射名：method_39104
               @Inject(method = "method_39104", at = @At("HEAD"), remap = false)
@@ -229,12 +235,12 @@ jobs:
           import org.spongepowered.asm.mixin.injection.At;
           import org.spongepowered.asm.mixin.injection.ModifyVariable;
 
-          @Mixin(targets = "net.minecraft.class_4084") // ModelManager
+          @Mixin(ModelManager.class)
           public class ModelManagerMixin {
               @ModifyVariable(method = "getModel", at = @At("RETURN"), ordinal = 0)
               private BakedModel replaceReturn(BakedModel original, ModelResourceLocation location) {
-                  BlockState state = BlockRenderDispatcherMixin.CURRENT_STATE.get();
-                  BlockPos pos = BlockRenderDispatcherMixin.CURRENT_POS.get();
+                  BlockState state = BlockRenderDispatcherMixin.getCurrentState().get();
+                  BlockPos pos = BlockRenderDispatcherMixin.getCurrentPos().get();
                   if (state == null || pos == null) return original;
                   boolean isObsidian = state.getBlock() == Blocks.OBSIDIAN;
                   boolean isCrying = state.getBlock() == Blocks.CRYING_OBSIDIAN;
