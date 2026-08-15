@@ -208,9 +208,9 @@ jobs:
 
           @Mixin(BlockRenderDispatcher.class)
           public class BlockRenderDispatcherMixin {
-              // 使用中间映射描述符 + remap=false，避免映射转换问题
+              // 根据 1.21.1 实际签名：renderBlock(BlockState, BlockPos, BlockAndTintGetter, PoseStack, VertexConsumer)
               @ModifyVariable(
-                  method = "renderBlock(Lnet/minecraft/class_2680;Lnet/minecraft/class_2338;Lnet/minecraft/class_1920;Lnet/minecraft/class_1087;)V",
+                  method = "renderBlock(Lnet/minecraft/class_2680;Lnet/minecraft/class_2338;Lnet/minecraft/class_1920;Lnet/minecraft/class_1150;Lnet/minecraft/class_746;)V",
                   at = @At("HEAD"),
                   argsOnly = true,
                   index = 3,
@@ -220,6 +220,8 @@ jobs:
                   BlockState state,
                   BlockPos pos,
                   BlockAndTintGetter world,
+                  com.mojang.blaze3d.vertex.PoseStack poseStack,
+                  com.mojang.blaze3d.vertex.VertexConsumer vertexConsumer,
                   BakedModel original
               ) {
                   if (!(world instanceof Level level)) return original;
