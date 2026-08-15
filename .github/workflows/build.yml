@@ -15,27 +15,220 @@ jobs:
           mkdir -p src/main/resources/assets/minecraft/models/item
           mkdir -p gradle/wrapper
 
+          cat > settings.gradle <<'EOF'
+          pluginManagement {
+              repositories {
+                  maven {
+                      name = 'Fabric'
+                      url = 'https://maven.fabricmc.net/'
+                  }
+                  mavenCentral()
+                  gradlePluginPortal()
+              }
+          }
+          rootProject.name = "sbx_frag_7"
+          EOF
+
           cat > build.gradle <<'EOF'
           plugins {
-              id 'fabric-loom' version '1.7.4'
-              id 'java'
+              id 'fabric-loom' version '1.8.13'
+              id 'maven-publish'
           }
           version = "1.0.0"
           group = "com.example"
           repositories {
               mavenCentral()
-              maven { name = "Fabric"; url = "https://maven.fabricmc.net/" }
+              maven { url 'https://maven.fabricmc.net/' }
           }
           dependencies {
               minecraft "com.mojang:minecraft:1.21.1"
-              // 使用 Yarn 映射
+              // 使用 Yarn 映射（可读性高，Loom 会自动转换）
               mappings "net.fabricmc:yarn:1.21.1+build.10:v2"
               modImplementation "net.fabricmc:fabric-loader:0.15.11"
           }
           EOF
 
-          # 其余配置与之前稳定版相同...
-          # （保持 PlaceMixin + BlockRenderDispatcherMixin，禁用 ModelManagerMixin）
+          cat > gradle.properties <<'EOF'
+          org.gradle.jvmargs=-Xmx1024M
+          org.gradle.daemon=false
+          EOF
+
+          cat > gradle/wrapper/gradle-wrapper.properties <<'EOF'
+          distributionBase=GRADLE_USER_HOME
+          distributionPath=wrapper/dists
+          distributionUrl=https\://services.gradle.org/distributions/gradle-8.10.2-bin.zip
+          zipStoreBase=GRADLE_USER_HOME
+          zipStorePath=wrapper/dists
+          EOF
+
+          cat > src/main/resources/fabric.mod.json <<'EOF'
+          {
+            "schemaVersion": 1,
+            "id": "sbx_frag_7",
+            "version": "1.0.0",
+            "name": "<SBX://PROJ.FRAG-7/ACCESS:Ω>",
+            "description": "铁砧命名改变黑曜石纹理（物品栏 + 地面）",
+            "authors": ["You"],
+            "license": "MIT",
+            "environment": "client",
+            "entrypoints": {
+              "main": ["com.example.namedobsidian.NamedObsidianMod"],
+              "client": ["com.example.namedobsidian.NamedObsidianClient"]
+            },
+            "mixins": ["namedobsidian.mixins.json"],
+            "depends": {
+              "fabricloader": ">=0.15.0",
+              "minecraft": "~1.21.1"
+            }
+          }
+          EOF
+
+          cat > src/main/resources/namedobsidian.mixins.json <<'EOF'
+          {
+            "required": true,
+            "minVersion": "0.8",
+            "package": "com.example.namedobsidian.mixin",
+            "compatibilityLevel": "JAVA_21",
+            "client": [
+              "PlaceMixin",
+              "BlockRenderDispatcherMixin"
+            ],
+            "injectors": { "defaultRequire": 1 }
+          }
+          EOF
+
+          cat > src/main/java/com/example/namedobsidian/NamedObsidianMod.java <<'EOF'
+          package com.example.namedobsidian;
+          import net.fabricmc.api.ModInitializer;
+          public class NamedObsidianMod implements ModInitializer {
+              @Override public void onInitialize() {
+                  System.out.println("[sbx_frag_7] 模组已加载");
+              }
+          }
+          EOF
+
+          cat > src/main/java/com/example/namedobsidian/ObsidianData.java <<'EOF'
+          package com.example.namedobsidian;
+          import net.minecraft.core.BlockPos;
+          import net.minecraft.world.level.Level;
+          import java.util.concurrent.ConcurrentHashMap;
+          public class ObsidianData {
+              private static final ConcurrentHashMap<BlockPos, String> MAP = new ConcurrentHashMap<>();
+              public static void putName(BlockPos pos, String name) { MAP.put(pos, name); }
+              public static String getClientName(Level world, BlockPos pos) { return MAP.get(pos); }
+              public static void remove(BlockPos pos) { MAP.remove(pos); }
+          }
+          EOF
+
+          cat > src/main/java/com/example/namedobsidian/NamedObsidianClient.java <<'EOF'
+          package com.example.namedobsidian;
+          import net.fabricmc.api.ClientModInitializer;
+          public class NamedObsidianClient implements ClientModInitializer {
+              @Override
+              public void onInitializeClient() {
+                  System.out.println("[sbx_frag_7] 客户端已加载（物品栏纹理请使用 CIT Resewn）");
+              }
+          }
+          EOF
+
+          cat > src/main/java/com/example/namedobsidian/mixin/PlaceMixin.java <<'EOF'
+          package com.example.namedobsidian.mixin;
+          import com.example.namedobsidian.ObsidianData;
+          import net.minecraft.core.BlockPos;
+          import net.minecraft.world.InteractionResult;
+          import net.minecraft.world.item.BlockItem;
+          import net.minecraft.world.item.context.BlockPlaceContext;
+          import net.minecraft.world.level.Level;
+          import org.spongepowered.asm.mixin.Mixin;
+          import org.spongepowered.asm.mixin.injection.At;
+          import org.spongepowered.asm.mixin.injection.Inject;
+          import org.spongepowered.asm.mixin.injection.callback.CallbackInfoReturnable;
+
+          @Mixin(BlockItem.class)
+          public class PlaceMixin {
+              @Inject(method = "place", at = @At("RETURN"))
+              private static void onPlace(BlockPlaceContext context, CallbackInfoReturnable<InteractionResult> cir) {
+                  if (cir.getReturnValue().consumesAction()) {
+                      Level world = context.getLevel();
+                      if (world.isClientSide()) {
+                          BlockPos pos = context.getClickedPos();
+                          String name = context.getItemInHand().getDisplayName().getString();
+                          if ("Void.exp".equals(name) || "<SKY.GEM>".equals(name)) {
+                              ObsidianData.putName(pos, name);
+                          }
+                      }
+                  }
+              }
+          }
+          EOF
+
+          cat > src/main/java/com/example/namedobsidian/mixin/BlockRenderDispatcherMixin.java <<'EOF'
+          package com.example.namedobsidian.mixin;
+          import net.minecraft.core.BlockPos;
+          import net.minecraft.world.level.block.state.BlockState;
+          import org.spongepowered.asm.mixin.Mixin;
+          import org.spongepowered.asm.mixin.injection.At;
+          import org.spongepowered.asm.mixin.injection.Inject;
+          import org.spongepowered.asm.mixin.injection.callback.CallbackInfo;
+
+          @Mixin(BlockRenderDispatcher.class)
+          public class BlockRenderDispatcherMixin {
+              @Inject(method = "renderBlock", at = @At("HEAD"))
+              private void captureState(BlockState state, BlockPos pos, CallbackInfo ci) {
+                  // 占位方法，为将来地面纹理保留
+              }
+          }
+          EOF
+
+          cat > src/main/resources/assets/minecraft/models/item/obsidian.json <<'EOF'
+          {
+            "parent": "minecraft:item/generated",
+            "textures": { "layer0": "minecraft:item/obsidian" },
+            "overrides": [
+              { "predicate": { "minecraft:void": 1 }, "model": "minecraft:item/obsidian_void" }
+            ]
+          }
+          EOF
+
+          cat > src/main/resources/assets/minecraft/models/item/obsidian_void.json <<'EOF'
+          {
+            "parent": "minecraft:block/cube_all",
+            "textures": { "all": "minecraft:block/obsidian_void" }
+          }
+          EOF
+
+          cat > src/main/resources/assets/minecraft/models/item/crying_obsidian.json <<'EOF'
+          {
+            "parent": "minecraft:item/generated",
+            "textures": { "layer0": "minecraft:item/crying_obsidian" },
+            "overrides": [
+              { "predicate": { "minecraft:sky": 1 }, "model": "minecraft:item/crying_obsidian_sky" }
+            ]
+          }
+          EOF
+
+          cat > src/main/resources/assets/minecraft/models/item/crying_obsidian_sky.json <<'EOF'
+          {
+            "parent": "minecraft:block/cube_all",
+            "textures": { "all": "minecraft:block/crying_obsidian_sky" }
+          }
+          EOF
+
+          cat > src/main/resources/assets/minecraft/models/block/obsidian_void.json <<'EOF'
+          {
+            "parent": "minecraft:block/cube_all",
+            "textures": { "all": "minecraft:block/obsidian_void" }
+          }
+          EOF
+
+          cat > src/main/resources/assets/minecraft/models/block/crying_obsidian_sky.json <<'EOF'
+          {
+            "parent": "minecraft:block/cube_all",
+            "textures": { "all": "minecraft:block/crying_obsidian_sky" }
+          }
+          EOF
+
+          echo "✅ 所有源码生成完毕！"
 
       - name: Set up JDK 21
         uses: actions/setup-java@v4
