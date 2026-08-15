@@ -10,7 +10,8 @@ jobs:
 
       - name: 生成所有源代码
         run: |
-          mkdir -p src/main/java/com/example/namedobsidian/mixin
+          mkdir -p src/main/java/com/example/namedobsidian
+          mkdir -p src/client/java/com/example/namedobsidian/mixin
           mkdir -p src/main/resources/assets/minecraft/models/block
           mkdir -p src/main/resources/assets/minecraft/models/item
           mkdir -p gradle/wrapper
@@ -97,6 +98,7 @@ jobs:
           }
           EOF
 
+          # ========== 通用代码（主源码） ==========
           cat > src/main/java/com/example/namedobsidian/NamedObsidianMod.java <<'EOF'
           package com.example.namedobsidian;
           import net.fabricmc.api.ModInitializer;
@@ -107,7 +109,21 @@ jobs:
           }
           EOF
 
-          cat > src/main/java/com/example/namedobsidian/NamedObsidianClient.java <<'EOF'
+          cat > src/main/java/com/example/namedobsidian/ObsidianData.java <<'EOF'
+          package com.example.namedobsidian;
+          import net.minecraft.core.BlockPos;
+          import net.minecraft.world.level.Level;
+          import java.util.concurrent.ConcurrentHashMap;
+          public class ObsidianData {
+              private static final ConcurrentHashMap<BlockPos, String> MAP = new ConcurrentHashMap<>();
+              public static void putName(BlockPos pos, String name) { MAP.put(pos, name); }
+              public static String getClientName(Level world, BlockPos pos) { return MAP.get(pos); }
+              public static void remove(BlockPos pos) { MAP.remove(pos); }
+          }
+          EOF
+
+          # ========== 客户端专属代码（client 源码集） ==========
+          cat > src/client/java/com/example/namedobsidian/NamedObsidianClient.java <<'EOF'
           package com.example.namedobsidian;
           import net.fabricmc.api.ClientModInitializer;
           import net.minecraft.client.renderer.item.ItemProperties;
@@ -149,20 +165,7 @@ jobs:
           }
           EOF
 
-          cat > src/main/java/com/example/namedobsidian/ObsidianData.java <<'EOF'
-          package com.example.namedobsidian;
-          import net.minecraft.core.BlockPos;
-          import net.minecraft.world.level.Level;
-          import java.util.concurrent.ConcurrentHashMap;
-          public class ObsidianData {
-              private static final ConcurrentHashMap<BlockPos, String> MAP = new ConcurrentHashMap<>();
-              public static void putName(BlockPos pos, String name) { MAP.put(pos, name); }
-              public static String getClientName(Level world, BlockPos pos) { return MAP.get(pos); }
-              public static void remove(BlockPos pos) { MAP.remove(pos); }
-          }
-          EOF
-
-          cat > src/main/java/com/example/namedobsidian/mixin/PlaceMixin.java <<'EOF'
+          cat > src/client/java/com/example/namedobsidian/mixin/PlaceMixin.java <<'EOF'
           package com.example.namedobsidian.mixin;
           import com.example.namedobsidian.ObsidianData;
           import net.minecraft.core.BlockPos;
@@ -192,7 +195,7 @@ jobs:
           }
           EOF
 
-          cat > src/main/java/com/example/namedobsidian/mixin/BlockRenderDispatcherMixin.java <<'EOF'
+          cat > src/client/java/com/example/namedobsidian/mixin/BlockRenderDispatcherMixin.java <<'EOF'
           package com.example.namedobsidian.mixin;
           import com.example.namedobsidian.ObsidianData;
           import net.minecraft.client.Minecraft;
@@ -245,7 +248,7 @@ jobs:
           }
           EOF
 
-          cat > src/main/java/com/example/namedobsidian/mixin/BlockRemoveMixin.java <<'EOF'
+          cat > src/client/java/com/example/namedobsidian/mixin/BlockRemoveMixin.java <<'EOF'
           package com.example.namedobsidian.mixin;
           import com.example.namedobsidian.ObsidianData;
           import net.minecraft.core.BlockPos;
@@ -265,6 +268,7 @@ jobs:
           }
           EOF
 
+          # ========== 模型文件 ==========
           cat > src/main/resources/assets/minecraft/models/item/obsidian.json <<'EOF'
           {
             "parent": "minecraft:item/generated",
