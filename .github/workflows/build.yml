@@ -87,7 +87,8 @@ jobs:
             "compatibilityLevel": "JAVA_21",
             "client": [
               "PlaceMixin",
-              "BlockRenderDispatcherMixin"
+              "BlockRenderDispatcherMixin",
+              "ModelManagerMixin"
             ],
             "injectors": { "defaultRequire": 1 }
           }
@@ -191,9 +192,30 @@ jobs:
 
           cat > src/main/java/com/example/namedobsidian/mixin/BlockRenderDispatcherMixin.java <<'EOF'
           package com.example.namedobsidian.mixin;
+          import net.minecraft.core.BlockPos;
+          import net.minecraft.world.level.block.state.BlockState;
+          import org.spongepowered.asm.mixin.Mixin;
+          import org.spongepowered.asm.mixin.injection.At;
+          import org.spongepowered.asm.mixin.injection.Inject;
+          import org.spongepowered.asm.mixin.injection.callback.CallbackInfo;
+
+          @Mixin(BlockRenderDispatcher.class)
+          public class BlockRenderDispatcherMixin {
+              public static final ThreadLocal<BlockState> CURRENT_STATE = new ThreadLocal<>();
+              public static final ThreadLocal<BlockPos> CURRENT_POS = new ThreadLocal<>();
+
+              @Inject(method = "renderBlock", at = @At("HEAD"))
+              private void captureState(BlockState state, BlockPos pos, CallbackInfo ci) {
+                  CURRENT_STATE.set(state);
+                  CURRENT_POS.set(pos);
+              }
+          }
+          EOF
+
+          cat > src/main/java/com/example/namedobsidian/mixin/ModelManagerMixin.java <<'EOF'
+          package com.example.namedobsidian.mixin;
           import com.example.namedobsidian.ObsidianData;
           import net.minecraft.client.Minecraft;
-          import net.minecraft.client.renderer.block.BlockRenderDispatcher;
           import net.minecraft.client.resources.model.BakedModel;
           import net.minecraft.client.resources.model.ModelManager;
           import net.minecraft.client.resources.model.ModelResourceLocation;
@@ -205,65 +227,35 @@ jobs:
           import org.spongepowered.asm.mixin.Mixin;
           import org.spongepowered.asm.mixin.injection.At;
           import org.spongepowered.asm.mixin.injection.ModifyVariable;
-          import org.spongepowered.asm.mixin.injection.WrapOperation;
-          import org.spongepowered.asm.mixin.injection.invoke.Operation;
 
-          @Mixin(BlockRenderDispatcher.class)
-          public class BlockRenderDispatcherMixin {
-              private static final ThreadLocal<BlockState> CURRENT_STATE = new ThreadLocal<>();
-              private static final ThreadLocal<BlockPos> CURRENT_POS = new ThreadLocal<>();
-
-              @ModifyVariable(method = "renderBlock", at = @At("HEAD"), argsOnly = true, index = 0)
-              private BlockState captureState(BlockState state) {
-                  CURRENT_STATE.set(state);
-                  return state;
-              }
-              @ModifyVariable(method = "renderBlock", at = @At("HEAD"), argsOnly = true, index = 1)
-              private BlockPos capturePos(BlockPos pos) {
-                  CURRENT_POS.set(pos);
-                  return pos;
-              }
-
-              @WrapOperation(
-                  method = "renderBlock",
-                  at = @At(value = "INVOKE", target = "Lnet/minecraft/client/resources/model/ModelManager;getModel(Lnet/minecraft/client/resources/model/ModelResourceLocation;)Lnet/minecraft/client/resources/model/BakedModel;")
-              )
-              private BakedModel replaceModel(ModelManager modelManager, ModelResourceLocation location, Operation<BakedModel> original) {
-                  BlockState state = CURRENT_STATE.get();
-                  BlockPos pos = CURRENT_POS.get();
-                  if (state == null || pos == null) {
-                      return original.call(modelManager, location);
-                  }
+          @Mixin(ModelManager.class)
+          public class ModelManagerMixin {
+              @ModifyVariable(method = "getModel", at = @At("HEAD"), argsOnly = true, index = 0)
+              private BakedModel replaceModel(BakedModel original, ModelResourceLocation location) {
+                  BlockState state = BlockRenderDispatcherMixin.CURRENT_STATE.get();
+                  BlockPos pos = BlockRenderDispatcherMixin.CURRENT_POS.get();
+                  if (state == null || pos == null) return original;
                   boolean isObsidian = state.getBlock() == Blocks.OBSIDIAN;
                   boolean isCrying = state.getBlock() == Blocks.CRYING_OBSIDIAN;
-                  if (!isObsidian && !isCrying) {
-                      return original.call(modelManager, location);
-                  }
+                  if (!isObsidian && !isCrying) return original;
                   Minecraft client = Minecraft.getInstance();
-                  if (client == null || client.level == null) {
-                      return original.call(modelManager, location);
-                  }
+                  if (client == null || client.level == null) return original;
                   Level level = client.level;
                   String name = ObsidianData.getClientName(level, pos);
-                  if (name == null) {
-                      return original.call(modelManager, location);
-                  }
+                  if (name == null) return original;
+                  ModelManager manager = (ModelManager)(Object)this;
                   if (isObsidian && "Void.exp".equals(name)) {
                       ModelResourceLocation customLoc = new ModelResourceLocation(
                           ResourceLocation.withDefaultNamespace("block/obsidian_void"), "");
-                      BakedModel custom = modelManager.getModel(customLoc);
-                      if (custom != null && custom != modelManager.getMissingModel()) {
-                          return custom;
-                      }
+                      BakedModel custom = manager.getModel(customLoc);
+                      if (custom != null && custom != manager.getMissingModel()) return custom;
                   } else if (isCrying && "<SKY.GEM>".equals(name)) {
                       ModelResourceLocation customLoc = new ModelResourceLocation(
                           ResourceLocation.withDefaultNamespace("block/crying_obsidian_sky"), "");
-                      BakedModel custom = modelManager.getModel(customLoc);
-                      if (custom != null && custom != modelManager.getMissingModel()) {
-                          return custom;
-                      }
+                      BakedModel custom = manager.getModel(customLoc);
+                      if (custom != null && custom != manager.getMissingModel()) return custom;
                   }
-                  return original.call(modelManager, location);
+                  return original;
               }
           }
           EOF
