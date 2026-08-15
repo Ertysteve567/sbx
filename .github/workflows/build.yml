@@ -66,7 +66,7 @@ jobs:
             "id": "sbx_frag_7",
             "version": "1.0.0",
             "name": "<SBX://PROJ.FRAG-7/ACCESS:Ω>",
-            "description": "铁砧命名改变黑曜石纹理",
+            "description": "铁砧命名改变黑曜石纹理（物品栏 + 地面）",
             "authors": ["You"],
             "license": "MIT",
             "environment": "client",
@@ -166,6 +166,7 @@ jobs:
           import com.example.namedobsidian.ObsidianData;
           import net.minecraft.client.Minecraft;
           import net.minecraft.client.resources.model.BakedModel;
+          import net.minecraft.client.resources.model.ModelLoader;
           import net.minecraft.client.resources.model.ModelManager;
           import net.minecraft.client.resources.model.ModelResourceLocation;
           import net.minecraft.core.BlockPos;
@@ -178,8 +179,8 @@ jobs:
 
           @Mixin(ModelManager.class)
           public class ModelManagerMixin {
-              @ModifyVariable(method = "getModel", at = @At("RETURN"), ordinal = 0)
-              private BakedModel replaceModel(BakedModel original, ModelResourceLocation location) {
+              @ModifyVariable(method = "replaceModel", at = @At("RETURN"), ordinal = 0)
+              private BakedModel replaceModel(BakedModel original, ModelLoader loader) {
                   Minecraft client = Minecraft.getInstance();
                   if (client == null || client.level == null) return original;
                   Level level = client.level;
