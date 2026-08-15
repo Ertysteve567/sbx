@@ -45,9 +45,6 @@ jobs:
               mappings loom.officialMojangMappings()
               modImplementation "net.fabricmc:fabric-loader:0.15.11"
           }
-          loom {
-              splitEnvironmentSourceSets()
-          }
           EOF
 
           cat > gradle.properties <<'EOF'
@@ -69,7 +66,7 @@ jobs:
             "id": "sbx_frag_7",
             "version": "1.0.0",
             "name": "<SBX://PROJ.FRAG-7/ACCESS:Ω>",
-            "description": "铁砧命名改变黑曜石纹理（物品栏 + 地面）",
+            "description": "铁砧命名改变纹理（物品栏 + 地面）",
             "authors": ["You"],
             "license": "MIT",
             "environment": "client",
@@ -109,20 +106,6 @@ jobs:
           }
           EOF
 
-          cat > src/main/java/com/example/namedobsidian/RenderContext.java <<'EOF'
-          package com.example.namedobsidian;
-          import net.minecraft.core.BlockPos;
-          import net.minecraft.world.level.block.state.BlockState;
-          public class RenderContext {
-              private static final ThreadLocal<BlockState> CURRENT_STATE = new ThreadLocal<>();
-              private static final ThreadLocal<BlockPos> CURRENT_POS = new ThreadLocal<>();
-              public static void setState(BlockState state, BlockPos pos) { CURRENT_STATE.set(state); CURRENT_POS.set(pos); }
-              public static BlockState getState() { return CURRENT_STATE.get(); }
-              public static BlockPos getPos() { return CURRENT_POS.get(); }
-              public static void clear() { CURRENT_STATE.remove(); CURRENT_POS.remove(); }
-          }
-          EOF
-
           cat > src/main/java/com/example/namedobsidian/ObsidianData.java <<'EOF'
           package com.example.namedobsidian;
           import net.minecraft.core.BlockPos;
@@ -139,41 +122,10 @@ jobs:
           cat > src/main/java/com/example/namedobsidian/NamedObsidianClient.java <<'EOF'
           package com.example.namedobsidian;
           import net.fabricmc.api.ClientModInitializer;
-          import net.minecraft.client.renderer.item.ItemProperties;
-          import net.minecraft.client.renderer.item.ClampedItemPropertyFunction;
-          import net.minecraft.resources.ResourceLocation;
-          import net.minecraft.world.item.Item;
-          import net.minecraft.world.item.Items;
-          import java.lang.reflect.Method;
           public class NamedObsidianClient implements ClientModInitializer {
               @Override
               public void onInitializeClient() {
-                  try {
-                      Method registerMethod = ItemProperties.class.getDeclaredMethod(
-                          "register",
-                          Item.class,
-                          ResourceLocation.class,
-                          ClampedItemPropertyFunction.class
-                      );
-                      registerMethod.setAccessible(true);
-                      registerMethod.invoke(null, Items.OBSIDIAN,
-                          ResourceLocation.withDefaultNamespace("void"),
-                          (ClampedItemPropertyFunction) (stack, world, entity, seed) -> {
-                              String name = stack.getDisplayName().getString();
-                              return "Void.exp".equals(name) ? 1.0f : 0.0f;
-                          }
-                      );
-                      registerMethod.invoke(null, Items.CRYING_OBSIDIAN,
-                          ResourceLocation.withDefaultNamespace("sky"),
-                          (ClampedItemPropertyFunction) (stack, world, entity, seed) -> {
-                              String name = stack.getDisplayName().getString();
-                              return "<SKY.GEM>".equals(name) ? 1.0f : 0.0f;
-                          }
-                      );
-                      System.out.println("[sbx_frag_7] 物品栏纹理注册成功");
-                  } catch (Exception e) {
-                      System.err.println("[sbx_frag_7] 物品栏纹理注册失败");
-                  }
+                  System.out.println("[sbx_frag_7] 客户端已加载（物品栏纹理请配合 CIT Resewn）");
               }
           }
           EOF
@@ -191,9 +143,9 @@ jobs:
           import org.spongepowered.asm.mixin.injection.Inject;
           import org.spongepowered.asm.mixin.injection.callback.CallbackInfoReturnable;
 
-          @Mixin(BlockItem.class)
+          @Mixin(targets = "net.minecraft.class_1747") // BlockItem
           public class PlaceMixin {
-              @Inject(method = "place", at = @At("RETURN"))
+              @Inject(method = "method_7714", at = @At("RETURN"), remap = false) // place
               private static void onPlace(BlockPlaceContext context, CallbackInfoReturnable<InteractionResult> cir) {
                   if (cir.getReturnValue().consumesAction()) {
                       Level world = context.getLevel();
@@ -224,14 +176,15 @@ jobs:
           import org.spongepowered.asm.mixin.injection.At;
           import org.spongepowered.asm.mixin.injection.ModifyVariable;
 
-          @Mixin(ModelManager.class)
+          // 使用官方映射时，@Mixin 的目标类用 Yarn 名会导致找不到，必须用混淆名
+          // 但我们这里使用 Yarn 名称是因为 Loom 在官方映射下也能识别 Yarn 名？不，不行。
+          // 必须全部改为混淆名。
+          @Mixin(targets = "net.minecraft.class_1087") // ModelManager
           public class ModelManagerMixin {
-              // 使用 @ModifyVariable 修改 replaceModel 的返回值
-              // 1.21.1 中 replaceModel 只有一个参数，返回 BakedModel
-              // 我们通过 @ModifyVariable 拦截返回值，根据命名记录替换
-              @ModifyVariable(method = "replaceModel", at = @At("RETURN"), ordinal = 0)
-              private BakedModel replaceModel(BakedModel original) {
-                  // 遍历所有命名记录，如果有匹配的方块，替换模型
+              // replaceModel 在混淆中为 replaceModel? 实际是 method_...
+              // 这里用 method 名 "replaceModel" 并 remap=false 让 Mixin 直接匹配方法名
+              @ModifyVariable(method = "replaceModel", at = @At("RETURN"), ordinal = 0, remap = false)
+              private net.minecraft.class_1085 replaceModel(net.minecraft.class_1085 original) {
                   Minecraft client = Minecraft.getInstance();
                   if (client == null || client.level == null) return original;
                   Level level = client.level;
@@ -243,13 +196,13 @@ jobs:
                           ModelResourceLocation customLoc = new ModelResourceLocation(
                               ResourceLocation.withDefaultNamespace("block/obsidian_void"), "");
                           ModelManager manager = (ModelManager)(Object)this;
-                          BakedModel custom = manager.getModel(customLoc);
+                          net.minecraft.class_1085 custom = (net.minecraft.class_1085) manager.getModel(customLoc);
                           if (custom != null && custom != manager.getMissingModel()) return custom;
                       } else if (level.getBlockState(pos).getBlock() == Blocks.CRYING_OBSIDIAN && "<SKY.GEM>".equals(name)) {
                           ModelResourceLocation customLoc = new ModelResourceLocation(
                               ResourceLocation.withDefaultNamespace("block/crying_obsidian_sky"), "");
                           ModelManager manager = (ModelManager)(Object)this;
-                          BakedModel custom = manager.getModel(customLoc);
+                          net.minecraft.class_1085 custom = (net.minecraft.class_1085) manager.getModel(customLoc);
                           if (custom != null && custom != manager.getMissingModel()) return custom;
                       }
                   }
