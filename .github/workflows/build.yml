@@ -174,14 +174,13 @@ jobs:
           import net.minecraft.world.level.block.Blocks;
           import org.spongepowered.asm.mixin.Mixin;
           import org.spongepowered.asm.mixin.injection.At;
-          import org.spongepowered.asm.mixin.injection.ModifyVariable;
+          import org.spongepowered.asm.mixin.injection.ModifyReturnValue;
 
           @Mixin(ModelManager.class)
           public class ModelManagerMixin {
-              // 1.21.1 中 replaceModel 方法只有一个参数（ModelLoader），返回 BakedModel
-              // 使用 @ModifyVariable 修改返回值
-              @ModifyVariable(method = "replaceModel", at = @At("RETURN"), ordinal = 0)
-              private BakedModel replaceModel(BakedModel original, net.minecraft.client.resources.model.ModelLoader loader) {
+              // 使用 @ModifyReturnValue 只修改返回值，避免参数类型问题
+              @ModifyReturnValue(method = "replaceModel", at = @At("RETURN"))
+              private BakedModel replaceModel(BakedModel original) {
                   Minecraft client = Minecraft.getInstance();
                   if (client == null || client.level == null) return original;
                   Level level = client.level;
