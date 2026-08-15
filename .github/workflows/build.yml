@@ -42,8 +42,8 @@ jobs:
           }
           dependencies {
               minecraft "com.mojang:minecraft:1.21.1"
-              // 使用 Yarn 映射（可读性高，Loom 会自动转换）
-              mappings "net.fabricmc:yarn:1.21.1+build.10:v2"
+              // 使用与 FCL 一致的 Yarn 映射版本
+              mappings "net.fabricmc:yarn:1.21.1+build.3:v2"
               modImplementation "net.fabricmc:fabric-loader:0.15.11"
           }
           EOF
