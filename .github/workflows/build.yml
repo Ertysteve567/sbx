@@ -195,6 +195,7 @@ jobs:
           import net.minecraft.client.Minecraft;
           import net.minecraft.client.renderer.block.BlockRenderDispatcher;
           import net.minecraft.client.resources.model.BakedModel;
+          import net.minecraft.client.resources.model.ModelManager;
           import net.minecraft.client.resources.model.ModelResourceLocation;
           import net.minecraft.core.BlockPos;
           import net.minecraft.resources.ResourceLocation;
@@ -205,43 +206,66 @@ jobs:
           import org.spongepowered.asm.mixin.Mixin;
           import org.spongepowered.asm.mixin.injection.At;
           import org.spongepowered.asm.mixin.injection.ModifyVariable;
+          import org.spongepowered.asm.mixin.injection.WrapOperation;
 
           @Mixin(BlockRenderDispatcher.class)
           public class BlockRenderDispatcherMixin {
-              // 根据 1.21.1 实际签名：renderBlock(BlockState, BlockPos, BlockAndTintGetter, PoseStack, VertexConsumer)
-              @ModifyVariable(
-                  method = "renderBlock(Lnet/minecraft/class_2680;Lnet/minecraft/class_2338;Lnet/minecraft/class_1920;Lnet/minecraft/class_1150;Lnet/minecraft/class_746;)V",
-                  at = @At("HEAD"),
-                  argsOnly = true,
-                  index = 3,
-                  remap = false
+              private static final ThreadLocal<BlockState> CURRENT_STATE = new ThreadLocal<>();
+              private static final ThreadLocal<BlockPos> CURRENT_POS = new ThreadLocal<>();
+
+              // 记录 BlockState 和 BlockPos
+              @ModifyVariable(method = "renderBlock", at = @At("HEAD"), argsOnly = true, index = 0)
+              private BlockState captureState(BlockState state) {
+                  CURRENT_STATE.set(state);
+                  return state;
+              }
+              @ModifyVariable(method = "renderBlock", at = @At("HEAD"), argsOnly = true, index = 1)
+              private BlockPos capturePos(BlockPos pos) {
+                  CURRENT_POS.set(pos);
+                  return pos;
+              }
+
+              // 拦截 ModelManager.getModel
+              @WrapOperation(
+                  method = "renderBlock",
+                  at = @At(value = "INVOKE", target = "Lnet/minecraft/client/resources/model/ModelManager;getModel(Lnet/minecraft/client/resources/model/ModelResourceLocation;)Lnet/minecraft/client/resources/model/BakedModel;")
               )
-              private BakedModel replaceModel(
-                  BlockState state,
-                  BlockPos pos,
-                  BlockAndTintGetter world,
-                  com.mojang.blaze3d.vertex.PoseStack poseStack,
-                  com.mojang.blaze3d.vertex.VertexConsumer vertexConsumer,
-                  BakedModel original
-              ) {
-                  if (!(world instanceof Level level)) return original;
-                  if (!level.isClientSide()) return original;
-                  String name = ObsidianData.getClientName(level, pos);
-                  if (name == null) return original;
-                  Minecraft client = Minecraft.getInstance();
-                  if (client == null) return original;
-                  if (state.getBlock() == Blocks.OBSIDIAN && "Void.exp".equals(name)) {
-                      ModelResourceLocation modelLoc = new ModelResourceLocation(
-                          ResourceLocation.withDefaultNamespace("block/obsidian_void"), "");
-                      BakedModel custom = client.getModelManager().getModel(modelLoc);
-                      if (custom != null) return custom;
-                  } else if (state.getBlock() == Blocks.CRYING_OBSIDIAN && "<SKY.GEM>".equals(name)) {
-                      ModelResourceLocation modelLoc = new ModelResourceLocation(
-                          ResourceLocation.withDefaultNamespace("block/crying_obsidian_sky"), "");
-                      BakedModel custom = client.getModelManager().getModel(modelLoc);
-                      if (custom != null) return custom;
+              private BakedModel replaceModel(ModelManager modelManager, ModelResourceLocation location, Operation<BakedModel> original) {
+                  BlockState state = CURRENT_STATE.get();
+                  BlockPos pos = CURRENT_POS.get();
+                  if (state == null || pos == null) {
+                      return original.call(modelManager, location);
                   }
-                  return original;
+                  boolean isObsidian = state.getBlock() == Blocks.OBSIDIAN;
+                  boolean isCrying = state.getBlock() == Blocks.CRYING_OBSIDIAN;
+                  if (!isObsidian && !isCrying) {
+                      return original.call(modelManager, location);
+                  }
+                  Minecraft client = Minecraft.getInstance();
+                  if (client == null || client.level == null) {
+                      return original.call(modelManager, location);
+                  }
+                  Level level = client.level;
+                  String name = ObsidianData.getClientName(level, pos);
+                  if (name == null) {
+                      return original.call(modelManager, location);
+                  }
+                  if (isObsidian && "Void.exp".equals(name)) {
+                      ModelResourceLocation customLoc = new ModelResourceLocation(
+                          ResourceLocation.withDefaultNamespace("block/obsidian_void"), "");
+                      BakedModel custom = modelManager.getModel(customLoc);
+                      if (custom != null && custom != modelManager.getMissingModel()) {
+                          return custom;
+                      }
+                  } else if (isCrying && "<SKY.GEM>".equals(name)) {
+                      ModelResourceLocation customLoc = new ModelResourceLocation(
+                          ResourceLocation.withDefaultNamespace("block/crying_obsidian_sky"), "");
+                      BakedModel custom = modelManager.getModel(customLoc);
+                      if (custom != null && custom != modelManager.getMissingModel()) {
+                          return custom;
+                      }
+                  }
+                  return original.call(modelManager, location);
               }
           }
           EOF
