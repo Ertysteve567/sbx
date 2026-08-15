@@ -42,7 +42,8 @@ jobs:
           }
           dependencies {
               minecraft "com.mojang:minecraft:1.21.1"
-              mappings loom.officialMojangMappings()
+              // 使用 Yarn 映射，让 Loom 自动选择最新版本
+              mappings "net.fabricmc:yarn:1.21.1"
               modImplementation "net.fabricmc:fabric-loader:0.15.11"
           }
           EOF
@@ -143,9 +144,9 @@ jobs:
           import org.spongepowered.asm.mixin.injection.Inject;
           import org.spongepowered.asm.mixin.injection.callback.CallbackInfoReturnable;
 
-          @Mixin(targets = "net.minecraft.class_1747") // BlockItem
+          @Mixin(BlockItem.class)
           public class PlaceMixin {
-              @Inject(method = "method_7714", at = @At("RETURN"), remap = false) // place
+              @Inject(method = "place", at = @At("RETURN"))
               private static void onPlace(BlockPlaceContext context, CallbackInfoReturnable<InteractionResult> cir) {
                   if (cir.getReturnValue().consumesAction()) {
                       Level world = context.getLevel();
@@ -176,15 +177,10 @@ jobs:
           import org.spongepowered.asm.mixin.injection.At;
           import org.spongepowered.asm.mixin.injection.ModifyVariable;
 
-          // 使用官方映射时，@Mixin 的目标类用 Yarn 名会导致找不到，必须用混淆名
-          // 但我们这里使用 Yarn 名称是因为 Loom 在官方映射下也能识别 Yarn 名？不，不行。
-          // 必须全部改为混淆名。
-          @Mixin(targets = "net.minecraft.class_1087") // ModelManager
+          @Mixin(ModelManager.class)
           public class ModelManagerMixin {
-              // replaceModel 在混淆中为 replaceModel? 实际是 method_...
-              // 这里用 method 名 "replaceModel" 并 remap=false 让 Mixin 直接匹配方法名
-              @ModifyVariable(method = "replaceModel", at = @At("RETURN"), ordinal = 0, remap = false)
-              private net.minecraft.class_1085 replaceModel(net.minecraft.class_1085 original) {
+              @ModifyVariable(method = "replaceModel", at = @At("RETURN"), ordinal = 0)
+              private BakedModel replaceModel(BakedModel original) {
                   Minecraft client = Minecraft.getInstance();
                   if (client == null || client.level == null) return original;
                   Level level = client.level;
@@ -196,13 +192,13 @@ jobs:
                           ModelResourceLocation customLoc = new ModelResourceLocation(
                               ResourceLocation.withDefaultNamespace("block/obsidian_void"), "");
                           ModelManager manager = (ModelManager)(Object)this;
-                          net.minecraft.class_1085 custom = (net.minecraft.class_1085) manager.getModel(customLoc);
+                          BakedModel custom = manager.getModel(customLoc);
                           if (custom != null && custom != manager.getMissingModel()) return custom;
                       } else if (level.getBlockState(pos).getBlock() == Blocks.CRYING_OBSIDIAN && "<SKY.GEM>".equals(name)) {
                           ModelResourceLocation customLoc = new ModelResourceLocation(
                               ResourceLocation.withDefaultNamespace("block/crying_obsidian_sky"), "");
                           ModelManager manager = (ModelManager)(Object)this;
-                          net.minecraft.class_1085 custom = (net.minecraft.class_1085) manager.getModel(customLoc);
+                          BakedModel custom = manager.getModel(customLoc);
                           if (custom != null && custom != manager.getMissingModel()) return custom;
                       }
                   }
