@@ -42,11 +42,8 @@ jobs:
           }
           dependencies {
               minecraft "com.mojang:minecraft:1.21.1"
-              mappings loom.officialMojangMappings()
+              mappings "net.fabricmc:yarn:1.21.1+build.1"
               modImplementation "net.fabricmc:fabric-loader:0.15.11"
-          }
-          loom {
-              splitEnvironmentSourceSets()
           }
           EOF
 
@@ -177,13 +174,11 @@ jobs:
           import net.minecraft.world.level.block.Blocks;
           import org.spongepowered.asm.mixin.Mixin;
           import org.spongepowered.asm.mixin.injection.At;
-          import org.spongepowered.asm.mixin.injection.ModifyVariable;
+          import org.spongepowered.asm.mixin.injection.ModifyReturnValue;
 
           @Mixin(ModelManager.class)
           public class ModelManagerMixin {
-              // 使用 @ModifyVariable 修改返回值，at = @At("RETURN")
-              // 不需要匹配目标方法的参数列表
-              @ModifyVariable(method = "replaceModel", at = @At("RETURN"), ordinal = 0)
+              @ModifyReturnValue(method = "replaceModel", at = @At("RETURN"))
               private BakedModel replaceModel(BakedModel original) {
                   Minecraft client = Minecraft.getInstance();
                   if (client == null || client.level == null) return original;
