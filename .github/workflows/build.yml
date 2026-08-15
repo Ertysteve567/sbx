@@ -91,14 +91,12 @@ jobs:
             "compatibilityLevel": "JAVA_21",
             "client": [
               "PlaceMixin",
-              "BlockRenderDispatcherMixin",
-              "BlockRemoveMixin"
+              "BlockRenderDispatcherMixin"
             ],
             "injectors": { "defaultRequire": 1 }
           }
           EOF
 
-          # ========== 通用代码（主源码） ==========
           cat > src/main/java/com/example/namedobsidian/NamedObsidianMod.java <<'EOF'
           package com.example.namedobsidian;
           import net.fabricmc.api.ModInitializer;
@@ -122,7 +120,6 @@ jobs:
           }
           EOF
 
-          # ========== 客户端专属代码（client 源码集） ==========
           cat > src/client/java/com/example/namedobsidian/NamedObsidianClient.java <<'EOF'
           package com.example.namedobsidian;
           import net.fabricmc.api.ClientModInitializer;
@@ -177,9 +174,11 @@ jobs:
           import org.spongepowered.asm.mixin.injection.At;
           import org.spongepowered.asm.mixin.injection.Inject;
           import org.spongepowered.asm.mixin.injection.callback.CallbackInfoReturnable;
+
           @Mixin(BlockItem.class)
           public class PlaceMixin {
-              @Inject(method = "place", at = @At("RETURN"))
+              // 使用 1.21.1 中间映射方法名：place -> method_7714
+              @Inject(method = "method_7714", at = @At("RETURN"))
               private void onPlace(BlockPlaceContext context, CallbackInfoReturnable<InteractionResult> cir) {
                   if (cir.getReturnValue().consumesAction()) {
                       Level world = context.getLevel();
@@ -214,8 +213,9 @@ jobs:
 
           @Mixin(BlockRenderDispatcher.class)
           public class BlockRenderDispatcherMixin {
+              // 使用 1.21.1 中间映射方法名：renderBlock -> method_39104
               @ModifyVariable(
-                  method = "renderBlock",
+                  method = "method_39104",
                   at = @At("HEAD"),
                   argsOnly = true,
                   index = 3
@@ -248,27 +248,6 @@ jobs:
           }
           EOF
 
-          cat > src/client/java/com/example/namedobsidian/mixin/BlockRemoveMixin.java <<'EOF'
-          package com.example.namedobsidian.mixin;
-          import com.example.namedobsidian.ObsidianData;
-          import net.minecraft.core.BlockPos;
-          import net.minecraft.world.level.Level;
-          import net.minecraft.world.level.block.Block;
-          import net.minecraft.world.level.block.state.BlockState;
-          import org.spongepowered.asm.mixin.Mixin;
-          import org.spongepowered.asm.mixin.injection.At;
-          import org.spongepowered.asm.mixin.injection.Inject;
-          import org.spongepowered.asm.mixin.injection.callback.CallbackInfo;
-          @Mixin(Block.class)
-          public class BlockRemoveMixin {
-              @Inject(method = "onRemove", at = @At("HEAD"))
-              private void onRemove(BlockState state, Level world, BlockPos pos, BlockState newState, boolean moved, CallbackInfo ci) {
-                  if (world.isClientSide()) ObsidianData.remove(pos);
-              }
-          }
-          EOF
-
-          # ========== 模型文件 ==========
           cat > src/main/resources/assets/minecraft/models/item/obsidian.json <<'EOF'
           {
             "parent": "minecraft:item/generated",
