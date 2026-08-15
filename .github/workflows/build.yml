@@ -28,8 +28,13 @@ jobs:
           }
           dependencies {
               minecraft "com.mojang:minecraft:1.21.1"
-              mappings loom.layered { officialMojangMappings() }
+              // 使用 Yarn 映射，与 FCL 运行环境一致
+              mappings "net.fabricmc:yarn:1.21.1+build.3"
               modImplementation "net.fabricmc:fabric-loader:0.15.11"
+          }
+          // 避免 Javadoc 错误
+          tasks.withType(GenerateModuleMetadata) {
+              enabled = false
           }
           EOF
 
@@ -140,7 +145,7 @@ jobs:
                       );
                       System.out.println("[sbx_frag_7] 物品栏纹理注册成功");
                   } catch (Exception e) {
-                      System.err.println("[sbx_frag_7] 物品栏纹理注册失败");
+                      System.err.println("[sbx_frag_7] 物品栏纹理注册失败（不影响游戏）");
                   }
               }
           }
@@ -208,8 +213,11 @@ jobs:
 
           @Mixin(BlockRenderDispatcher.class)
           public class BlockRenderDispatcherMixin {
+              // 使用 Yarn 映射的中间名精确签名（与 FCL 完全匹配）
+              // 注意：参数列表按顺序：BlockState, BlockPos, BlockAndTintGetter, ... (中间省略)
+              // 这里我们只关心前三个参数，但必须精确匹配完整签名
               @ModifyVariable(
-                  method = "renderBlock",
+                  method = "renderBlock(Lnet/minecraft/class_2680;Lnet/minecraft/class_2338;Lnet/minecraft/class_1920;Lnet/minecraft/class_746;Lnet/minecraft/class_1150;ZLjava/util/Random;I)V",
                   at = @At("HEAD"),
                   argsOnly = true,
                   index = 3
@@ -228,14 +236,12 @@ jobs:
                   if (client == null) return original;
                   if (state.getBlock() == Blocks.OBSIDIAN && "Void.exp".equals(name)) {
                       ModelResourceLocation modelLoc = new ModelResourceLocation(
-                          ResourceLocation.withDefaultNamespace("block/obsidian_void"), ""
-                      );
+                          ResourceLocation.withDefaultNamespace("block/obsidian_void"), "");
                       BakedModel custom = client.getModelManager().getModel(modelLoc);
                       if (custom != null) return custom;
                   } else if (state.getBlock() == Blocks.CRYING_OBSIDIAN && "<SKY.GEM>".equals(name)) {
                       ModelResourceLocation modelLoc = new ModelResourceLocation(
-                          ResourceLocation.withDefaultNamespace("block/crying_obsidian_sky"), ""
-                      );
+                          ResourceLocation.withDefaultNamespace("block/crying_obsidian_sky"), "");
                       BakedModel custom = client.getModelManager().getModel(modelLoc);
                       if (custom != null) return custom;
                   }
