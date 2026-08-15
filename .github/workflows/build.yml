@@ -43,13 +43,10 @@ jobs:
               maven { url 'https://maven.fabricmc.net/' }
           }
 
-          loom {
-              // 使用官方映射（正确写法）
-              mappings loom.officialMojangMappings()
-          }
-
           dependencies {
               minecraft "com.mojang:minecraft:1.21.1"
+              // 使用 FCL 实际加载的 Yarn 映射版本
+              mappings "net.fabricmc:yarn:1.21.1+build.3:v2"
               modImplementation "net.fabricmc:fabric-loader:0.15.11"
               modImplementation "net.fabricmc.fabric-api:fabric-api:0.116.15+1.21.1"
           }
