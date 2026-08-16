@@ -41,11 +41,16 @@ jobs:
           repositories {
               mavenCentral()
               maven { url 'https://maven.fabricmc.net/' }
+              maven { url 'https://libraries.minecraft.net/' }
+          }
+
+          loom {
+              // 正确配置官方映射
+              mappings loom.officialMojangMappings()
           }
 
           dependencies {
               minecraft "com.mojang:minecraft:1.21.1"
-              mappings "net.minecraft:minecraft:1.21.1:official"
               modImplementation "net.fabricmc:fabric-loader:0.19.3"
               modImplementation "net.fabricmc.fabric-api:fabric-api:0.116.15+1.21.1"
           }
@@ -75,7 +80,7 @@ jobs:
             "id": "sbx_frag_7",
             "version": "1.0.0",
             "name": "<SBX://PROJ.FRAG-7/ACCESS:Ω>",
-            "description": "铁砧命名改变黑曜石纹理（物品栏 + 地面）",
+            "description": "铁砧命名改变纹理（物品栏 + 地面）",
             "authors": ["You"],
             "license": "MIT",
             "environment": "client",
