@@ -10,7 +10,7 @@ jobs:
 
       - name: 生成所有源代码
         run: |
-          mkdir -p src/main/java/com/example/namedobsidian/mixin
+          mkdir -p src/main/java/com/example/namedobsidian
           mkdir -p src/main/resources/assets/minecraft/models/block
           mkdir -p src/main/resources/assets/minecraft/models/item
           mkdir -p gradle/wrapper
@@ -32,28 +32,16 @@ jobs:
           cat > build.gradle <<'EOF'
           plugins {
               id 'fabric-loom' version '1.7.4'
-              id 'java'
           }
-
-          version = "1.0.0"
-          group = "com.example"
-
           repositories {
               mavenCentral()
               maven { url 'https://maven.fabricmc.net/' }
           }
-
           dependencies {
               minecraft "com.mojang:minecraft:1.21.1"
-              // 使用 Yarn 映射（直接写在 dependencies 中）
-              mappings "net.fabricmc:yarn:1.21.1+build.3:v2"
-              modImplementation "net.fabricmc:fabric-loader:0.19.3"
+              mappings loom.officialMojangMappings()
+              modImplementation "net.fabricmc:fabric-loader:0.15.11"
               modImplementation "net.fabricmc.fabric-api:fabric-api:0.116.15+1.21.1"
-          }
-
-          java {
-              sourceCompatibility = JavaVersion.VERSION_17
-              targetCompatibility = JavaVersion.VERSION_17
           }
           EOF
 
@@ -76,7 +64,7 @@ jobs:
             "id": "sbx_frag_7",
             "version": "1.0.0",
             "name": "<SBX://PROJ.FRAG-7/ACCESS:Ω>",
-            "description": "铁砧命名改变纹理（物品栏 + 地面）",
+            "description": "铁砧命名改变纹理（物品栏）+ 地面颜色变化",
             "authors": ["You"],
             "license": "MIT",
             "environment": "client",
@@ -84,26 +72,11 @@ jobs:
               "main": ["com.example.namedobsidian.NamedObsidianMod"],
               "client": ["com.example.namedobsidian.NamedObsidianClient"]
             },
-            "mixins": ["namedobsidian.mixins.json"],
             "depends": {
               "fabricloader": ">=0.15.0",
               "minecraft": "~1.21.1",
               "fabric-api": ">=0.116.15"
             }
-          }
-          EOF
-
-          cat > src/main/resources/namedobsidian.mixins.json <<'EOF'
-          {
-            "required": true,
-            "minVersion": "0.8",
-            "package": "com.example.namedobsidian.mixin",
-            "compatibilityLevel": "JAVA_21",
-            "client": [
-              "PlaceMixin",
-              "ModelManagerMixin"
-            ],
-            "injectors": { "defaultRequire": 1 }
           }
           EOF
 
@@ -117,117 +90,58 @@ jobs:
           }
           EOF
 
-          cat > src/main/java/com/example/namedobsidian/ObsidianData.java <<'EOF'
-          package com.example.namedobsidian;
-          import net.minecraft.core.BlockPos;
-          import net.minecraft.world.level.Level;
-          import java.util.concurrent.ConcurrentHashMap;
-          public class ObsidianData {
-              public static final ConcurrentHashMap<BlockPos, String> MAP = new ConcurrentHashMap<>();
-              public static void putName(BlockPos pos, String name) { MAP.put(pos, name); }
-              public static String getClientName(Level world, BlockPos pos) { return MAP.get(pos); }
-              public static void remove(BlockPos pos) { MAP.remove(pos); }
-          }
-          EOF
-
           cat > src/main/java/com/example/namedobsidian/NamedObsidianClient.java <<'EOF'
           package com.example.namedobsidian;
           import net.fabricmc.api.ClientModInitializer;
-          public class NamedObsidianClient implements ClientModInitializer {
-              @Override
-              public void onInitializeClient() {
-                  System.out.println("[sbx_frag_7] 客户端已加载");
-              }
-          }
-          EOF
-
-          cat > src/main/java/com/example/namedobsidian/mixin/PlaceMixin.java <<'EOF'
-          package com.example.namedobsidian.mixin;
-          import com.example.namedobsidian.ObsidianData;
+          import net.fabricmc.fabric.api.client.rendering.v1.ColorProviderRegistry;
+          import net.fabricmc.fabric.api.event.player.PlayerBlockBreakEvents;
+          import net.fabricmc.fabric.api.event.player.UseBlockCallback;
           import net.minecraft.core.BlockPos;
           import net.minecraft.world.InteractionResult;
-          import net.minecraft.world.item.BlockItem;
-          import net.minecraft.world.item.context.BlockPlaceContext;
-          import net.minecraft.world.level.Level;
-          import org.spongepowered.asm.mixin.Mixin;
-          import org.spongepowered.asm.mixin.injection.At;
-          import org.spongepowered.asm.mixin.injection.Inject;
-          import org.spongepowered.asm.mixin.injection.callback.CallbackInfoReturnable;
-
-          @Mixin(BlockItem.class)
-          public class PlaceMixin {
-              @Inject(method = "place", at = @At("RETURN"))
-              private static void onPlace(BlockPlaceContext context, CallbackInfoReturnable<InteractionResult> cir) {
-                  if (cir.getReturnValue().consumesAction()) {
-                      Level world = context.getLevel();
-                      if (world.isClientSide()) {
-                          BlockPos pos = context.getClickedPos();
-                          String name = context.getItemInHand().getDisplayName().getString();
-                          if ("Void.exp".equals(name) || "<SKY.GEM>".equals(name)) {
-                              ObsidianData.putName(pos, name);
-                          }
-                      }
-                  }
-              }
-          }
-          EOF
-
-          cat > src/main/java/com/example/namedobsidian/mixin/ModelManagerMixin.java <<'EOF'
-          package com.example.namedobsidian.mixin;
-          import com.example.namedobsidian.ObsidianData;
-          import net.minecraft.client.Minecraft;
-          import net.minecraft.client.resources.model.BakedModel;
-          import net.minecraft.client.resources.model.ModelManager;
-          import net.minecraft.client.resources.model.ModelResourceLocation;
-          import net.minecraft.core.BlockPos;
-          import net.minecraft.resources.ResourceLocation;
           import net.minecraft.world.level.Level;
           import net.minecraft.world.level.block.Blocks;
-          import org.spongepowered.asm.mixin.Mixin;
-          import org.spongepowered.asm.mixin.injection.At;
-          import org.spongepowered.asm.mixin.injection.ModifyVariable;
+          import java.util.concurrent.ConcurrentHashMap;
 
-          @Mixin(ModelManager.class)
-          public class ModelManagerMixin {
-              @ModifyVariable(method = "replaceModel", at = @At("RETURN"), ordinal = 0)
-              private BakedModel replaceModel(BakedModel original) {
-                  Minecraft client = Minecraft.getInstance();
-                  if (client == null || client.level == null) return original;
-                  Level level = client.level;
-                  for (BlockPos pos : ObsidianData.MAP.keySet()) {
-                      if (!level.isLoaded(pos)) continue;
-                      String name = ObsidianData.getClientName(level, pos);
-                      if (name == null) continue;
-                      if (level.getBlockState(pos).getBlock() == Blocks.OBSIDIAN && "Void.exp".equals(name)) {
-                          ModelResourceLocation customLoc = new ModelResourceLocation(
-                              ResourceLocation.withDefaultNamespace("block/obsidian_void"), "");
-                          ModelManager manager = (ModelManager)(Object)this;
-                          BakedModel custom = manager.getModel(customLoc);
-                          if (custom != null && custom != manager.getMissingModel()) return custom;
-                      } else if (level.getBlockState(pos).getBlock() == Blocks.CRYING_OBSIDIAN && "<SKY.GEM>".equals(name)) {
-                          ModelResourceLocation customLoc = new ModelResourceLocation(
-                              ResourceLocation.withDefaultNamespace("block/crying_obsidian_sky"), "");
-                          ModelManager manager = (ModelManager)(Object)this;
-                          BakedModel custom = manager.getModel(customLoc);
-                          if (custom != null && custom != manager.getMissingModel()) return custom;
+          public class NamedObsidianClient implements ClientModInitializer {
+              private static final ConcurrentHashMap<String, String> NAME_MAP = new ConcurrentHashMap<>();
+
+              @Override
+              public void onInitializeClient() {
+                  UseBlockCallback.EVENT.register((player, level, hand, hitResult) -> {
+                      if (level.isClientSide()) {
+                          BlockPos pos = hitResult.getBlockPos();
+                          String name = player.getItemInHand(hand).getDisplayName().getString();
+                          if (level.getBlockState(pos).getBlock() == Blocks.OBSIDIAN && !name.isEmpty()) {
+                              NAME_MAP.put(pos.getX() + "," + pos.getY() + "," + pos.getZ(), name);
+                              System.out.println("[sbx_frag_7] 记录命名: " + name + " at " + pos);
+                          }
                       }
-                  }
-                  return original;
+                      return InteractionResult.PASS;
+                  });
+
+                  PlayerBlockBreakEvents.BEFORE.register((level, player, pos, state, blockEntity) -> {
+                      if (level.isClientSide()) {
+                          NAME_MAP.remove(pos.getX() + "," + pos.getY() + "," + pos.getZ());
+                      }
+                      return true;
+                  });
+
+                  // 地面颜色变化 - 已按要求修改颜色值
+                  ColorProviderRegistry.BLOCK.register((state, world, pos, tintIndex) -> {
+                      if (world == null || pos == null) return 0xFF2D2D2D;
+                      String name = NAME_MAP.get(pos.getX() + "," + pos.getY() + "," + pos.getZ());
+                      if (name == null) return 0xFF2D2D2D;
+                      if ("Void.exp".equals(name)) {
+                          return 0xFFB5B5B5; // 银灰色 #B5B5B5
+                      }
+                      if ("<SKY.GEM>".equals(name)) {
+                          return 0xFF59A0D0; // 淡蓝色 #59A0D0
+                      }
+                      return 0xFF2D2D2D;
+                  }, Blocks.OBSIDIAN, Blocks.CRYING_OBSIDIAN);
+
+                  System.out.println("[sbx_frag_7] 地面颜色变化已注册");
               }
-          }
-          EOF
-
-          cat > src/main/resources/assets/minecraft/models/block/obsidian_void.json <<'EOF'
-          {
-            "parent": "minecraft:block/cube_all",
-            "textures": { "all": "minecraft:block/obsidian_void" }
-          }
-          EOF
-
-          cat > src/main/resources/assets/minecraft/models/block/crying_obsidian_sky.json <<'EOF'
-          {
-            "parent": "minecraft:block/cube_all",
-            "textures": { "all": "minecraft:block/crying_obsidian_sky" }
           }
           EOF
 
