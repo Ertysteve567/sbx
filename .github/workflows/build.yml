@@ -107,11 +107,14 @@ jobs:
 
               @Override
               public void onInitializeClient() {
+                  // 监听右键点击黑曜石，替换方块触发重新渲染
                   UseBlockCallback.EVENT.register((player, level, hand, hitResult) -> {
                       if (level.isClientSide()) {
                           BlockPos pos = hitResult.getBlockPos();
                           String name = player.getItemInHand(hand).getDisplayName().getString();
                           if (level.getBlockState(pos).getBlock() == Blocks.OBSIDIAN && !name.isEmpty()) {
+                              // 重新设置方块状态触发渲染更新
+                              level.setBlock(pos, Blocks.OBSIDIAN.defaultBlockState(), 3);
                               NAME_MAP.put(pos.getX() + "," + pos.getY() + "," + pos.getZ(), name);
                               System.out.println("[sbx_frag_7] 记录命名: " + name + " at " + pos);
                           }
@@ -119,6 +122,7 @@ jobs:
                       return InteractionResult.PASS;
                   });
 
+                  // 监听方块破坏
                   PlayerBlockBreakEvents.BEFORE.register((level, player, pos, state, blockEntity) -> {
                       if (level.isClientSide()) {
                           NAME_MAP.remove(pos.getX() + "," + pos.getY() + "," + pos.getZ());
@@ -126,16 +130,16 @@ jobs:
                       return true;
                   });
 
-                  // 地面颜色变化 - 已按要求修改颜色值
+                  // 地面颜色变化
                   ColorProviderRegistry.BLOCK.register((state, world, pos, tintIndex) -> {
                       if (world == null || pos == null) return 0xFF2D2D2D;
                       String name = NAME_MAP.get(pos.getX() + "," + pos.getY() + "," + pos.getZ());
                       if (name == null) return 0xFF2D2D2D;
                       if ("Void.exp".equals(name)) {
-                          return 0xFFB5B5B5; // 银灰色 #B5B5B5
+                          return 0xFFB5B5B5; // 银灰色
                       }
                       if ("<SKY.GEM>".equals(name)) {
-                          return 0xFF59A0D0; // 淡蓝色 #59A0D0
+                          return 0xFF59A0D0; // 淡蓝色
                       }
                       return 0xFF2D2D2D;
                   }, Blocks.OBSIDIAN, Blocks.CRYING_OBSIDIAN);
